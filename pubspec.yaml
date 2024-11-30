@@ -1,0 +1,20 @@
+name: llm_api_picker
+description: "Pick your backend API for your LLM"
+version: 1.0.0
+homepage: 'https://github.com/yofardev/llm_api_picker'
+
+environment:
+  sdk: ">=3.4.3 <4.0.0"
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  shared_preferences: ^2.2.3
+  http: ^1.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lint: 
+
