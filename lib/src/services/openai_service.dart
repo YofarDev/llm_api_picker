@@ -13,7 +13,8 @@ class OpenAIService {
     required List<Map<String, dynamic>> messages,
   }) async {
     final Map<String, String> headers = <String, String>{
-      headerApiKeyEntry: apiKey,
+      headerApiKeyEntry:
+          headerApiKeyEntry == 'Authorization' ? 'Bearer $apiKey' : apiKey,
       'Content-Type': 'application/json',
     };
     final String body = jsonEncode(<String, Object>{
@@ -28,7 +29,10 @@ class OpenAIService {
             ['content'] as String;
         return answer;
       } else {
-        throw Exception(jsonDecode(response.body)['error']['message']);
+        print(response.body);
+        final dynamic errorMessage =
+            jsonDecode(response.body)['error']['message'] ?? 'Unknown error';
+        throw Exception(errorMessage);
       }
     } catch (e) {
       throw Exception(e);

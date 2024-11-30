@@ -133,24 +133,6 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
                     },
                   );
                   return;
-                } else if (nameController.text.isNotEmpty &&
-                    _llmApis.any((LlmApi x) => x.name == nameController.text)) {
-                  showDialog(
-                    context: context,
-                    builder: (BuildContext context) {
-                      return AlertDialog(
-                        title: const Text('Error'),
-                        content: const Text('This name is already taken'),
-                        actions: <Widget>[
-                          TextButton(
-                            child: const Text('Ok'),
-                            onPressed: () => Navigator.of(context).pop(),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                  return;
                 }
                 final LlmApi api = LlmApi(
                   name: nameController.text,

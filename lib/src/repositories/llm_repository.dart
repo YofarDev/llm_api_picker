@@ -42,7 +42,7 @@ class LLMRepository {
     return OpenAIService.promptModel(
       apiUrl: currentApi.url,
       headerApiKeyEntry: currentApi.headerApiKeyEntry,
-      apiKey: currentApi.apiKey,
+      apiKey:  currentApi.apiKey,
       modelName: currentApi.modelName,
       messages: messages,
     );
