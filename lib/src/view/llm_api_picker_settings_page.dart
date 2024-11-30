@@ -115,7 +115,6 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
               onPressed: () {
                 if (nameController.text.isEmpty ||
                     urlController.text.isEmpty ||
-                    headerApiKeyEntryController.text.isEmpty ||
                     apiKeyController.text.isEmpty ||
                     modelNameController.text.isEmpty) {
                   showDialog(
@@ -153,14 +152,17 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
                   );
                   return;
                 }
+                final LlmApi api = LlmApi(
+                  name: nameController.text,
+                  url: urlController.text,
+                  apiKey: apiKeyController.text,
+                  modelName: modelNameController.text,
+                );
+                if (headerApiKeyEntryController.text.isNotEmpty) {
+                  api.headerApiKeyEntry = headerApiKeyEntryController.text;
+                }
                 Navigator.of(context).pop(
-                  LlmApi(
-                    name: nameController.text,
-                    url: urlController.text,
-                    headerApiKeyEntry: headerApiKeyEntryController.text,
-                    apiKey: apiKeyController.text,
-                    modelName: modelNameController.text,
-                  ),
+                  api,
                 );
               },
             ),
