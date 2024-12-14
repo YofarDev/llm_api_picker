@@ -1,15 +1,11 @@
+import 'package:flutter/services.dart';
+
 import '../../llm_api_picker.dart';
 
 class LLMRepository {
   static Future<void> saveLlmApi(LlmApi llmApi) async {
     await CacheService.updateSavedList(
-      LlmApi(
-        name: llmApi.name,
-        url: llmApi.url,
-        headerApiKeyEntry: llmApi.headerApiKeyEntry,
-        apiKey: llmApi.apiKey,
-        modelName: llmApi.modelName,
-      ),
+      llmApi,
     );
   }
 
@@ -35,16 +31,55 @@ class LLMRepository {
 
   static Future<String> promptModel({
     LlmApi? api,
-    required List<Map<String, dynamic>> messages,
+    required List<Message> messages,
+    String? systemPrompt,
+    bool returnJson = false,
   }) async {
     final LlmApi? currentApi = api ?? await CacheService.getCurrentApi();
     if (currentApi == null) throw Exception('No API selected');
-    return OpenAIService.promptModel(
-      apiUrl: currentApi.url,
-      headerApiKeyEntry: currentApi.headerApiKeyEntry,
-      apiKey:  currentApi.apiKey,
-      modelName: currentApi.modelName,
-      messages: messages,
-    );
+    return currentApi.isGemini
+        ? GeminiService.promptModel(
+            apiKey: currentApi.apiKey,
+            modelName: currentApi.modelName,
+            content: await messages.toGeminiMessages(),
+            systemPrompt: systemPrompt,
+            returnJson: returnJson,
+          )
+        : OpenAIService.promptModel(
+            apiUrl: currentApi.url,
+            apiKey: currentApi.apiKey,
+            modelName: currentApi.modelName,
+            messages: await messages.toOpenAiMessages(),
+            systemPrompt: systemPrompt,
+          );
+  }
+
+  static Future<List<FunctionInfo>> checkFunctionsCalling({
+    LlmApi? api,
+    required String lastUserMessage,
+    required List<FunctionInfo> functions,
+  }) async {
+    final LlmApi? currentApi = api ?? await CacheService.getCurrentApi();
+    if (currentApi == null) throw Exception('No API selected');
+    final String systemPrompt = (await rootBundle.loadString(
+      'packages/llm_api_picker/lib/assets/functions_calling_prompt.txt',
+    ))
+        .replaceAll('\$FUNCTIONS_LIST', functions.toPromptString());
+    return currentApi.isGemini
+        ? GeminiService.checkFunctionsCalling(
+            systemPrompt: systemPrompt,
+            modelName: currentApi.modelName,
+            apiKey: currentApi.apiKey,
+            prompt: lastUserMessage,
+            functions: functions,
+          )
+        : OpenAIService.checkFunctionsCalling(
+            systemPrompt: systemPrompt,
+            apiUrl: currentApi.url,
+            apiKey: currentApi.apiKey,
+            modelName: currentApi.modelName,
+            prompt: lastUserMessage,
+            functions: functions,
+          );
   }
 }

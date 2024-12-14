@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../llm_api_picker.dart';
+import 'inputs_form_llm_api_view.dart';
 
 class LlmApiPickerSettingsPage extends StatefulWidget {
   const LlmApiPickerSettingsPage({super.key});
@@ -22,6 +23,7 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
   }
 
   Future<void> _loadLlmApis() async {
+    _llmApis.clear();
     final List<LlmApi> llmApis = await LLMRepository.getSavedLlmApis();
     setState(() {
       _llmApis.addAll(llmApis);
@@ -60,96 +62,10 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
   }
 
   Future<LlmApi?> _showLlmApiDialog({LlmApi? api}) async {
-    final TextEditingController nameController =
-        TextEditingController(text: api?.name ?? '');
-    final TextEditingController urlController =
-        TextEditingController(text: api?.url ?? '');
-    final TextEditingController headerApiKeyEntryController =
-        TextEditingController(text: api?.headerApiKeyEntry ?? '');
-    final TextEditingController apiKeyController =
-        TextEditingController(text: api?.apiKey ?? '');
-    final TextEditingController modelNameController =
-        TextEditingController(text: api?.modelName ?? '');
-
     return showDialog<LlmApi>(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(api == null ? 'Add LLM API' : 'Edit LLM API'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Name'),
-                ),
-                TextField(
-                  controller: urlController,
-                  decoration: const InputDecoration(labelText: 'URL'),
-                ),
-                TextField(
-                  controller: headerApiKeyEntryController,
-                  decoration:
-                      const InputDecoration(labelText: 'Header API Key Entry'),
-                ),
-                TextField(
-                  controller: apiKeyController,
-                  decoration: const InputDecoration(labelText: 'API Key'),
-                  obscureText: true,
-                ),
-                TextField(
-                  controller: modelNameController,
-                  decoration: const InputDecoration(labelText: 'Model Name'),
-                ),
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            TextButton(
-              child: const Text('Save'),
-              onPressed: () {
-                if (nameController.text.isEmpty ||
-                    urlController.text.isEmpty ||
-                    apiKeyController.text.isEmpty ||
-                    modelNameController.text.isEmpty) {
-                  showDialog(
-                    context: context,
-                    builder: (BuildContext context) {
-                      return AlertDialog(
-                        title: const Text('Error'),
-                        content: const Text('Please fill all fields'),
-                        actions: <Widget>[
-                          TextButton(
-                            child: const Text('Ok'),
-                            onPressed: () => Navigator.of(context).pop(),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                  return;
-                }
-                final LlmApi api = LlmApi(
-                  name: nameController.text,
-                  url: urlController.text,
-                  apiKey: apiKeyController.text,
-                  modelName: modelNameController.text,
-                );
-                if (headerApiKeyEntryController.text.isNotEmpty) {
-                  api.headerApiKeyEntry = headerApiKeyEntryController.text;
-                }
-                Navigator.of(context).pop(
-                  api,
-                );
-              },
-            ),
-          ],
-        );
+        return InputsFormLlmApiView(api: api);
       },
     );
   }
@@ -168,7 +84,7 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
                 final LlmApi api = _llmApis[index];
                 return ListTile(
                   leading: Checkbox(
-                    value: api.name == _currentApi?.name,
+                    value: api.id == _currentApi?.id,
                     onChanged: (bool? value) {
                       if (value == true) {
                         LLMRepository.setCurrentApi(api);
@@ -178,7 +94,7 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
                       }
                     },
                   ),
-                  title: Text(api.name),
+                  title: Text(api.modelName),
                   subtitle: Text(api.url),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,

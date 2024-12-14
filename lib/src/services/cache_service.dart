@@ -33,11 +33,14 @@ class CacheService {
 
   static Future<void> updateExistingEntry(LlmApi llmApis) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final List<String> list = await _getSavedList();
-    final int index =
-        list.indexWhere((String x) => x == jsonEncode(llmApis.toMap()));
-    list[index] = jsonEncode(llmApis.toMap());
-    await prefs.setStringList(_savedListKey, list);
+    final List<LlmApi> list = await getSavedLlmApis();
+    final int index = list.indexWhere((LlmApi x) => x.id == llmApis.id);
+    list[index] = llmApis;
+    final List<String> strList = <String>[];
+    for (final LlmApi api in list) {
+      strList.add(jsonEncode(api.toMap()));
+    }
+    await prefs.setStringList(_savedListKey, strList);
   }
 
   static Future<void> deleteEntryList(LlmApi llmApis) async {
@@ -49,7 +52,7 @@ class CacheService {
 
   static Future<void> setCurrentApi(LlmApi llmApis) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_currentApiKey, llmApis.name);
+    await prefs.setString(_currentApiKey, llmApis.id);
   }
 
   static Future<LlmApi?> getCurrentApi() async {
@@ -58,7 +61,7 @@ class CacheService {
     if (currentApi == null) return null;
     final List<LlmApi> apis = await getSavedLlmApis();
     try {
-      return apis.firstWhere((LlmApi x) => x.name == currentApi);
+      return apis.firstWhere((LlmApi x) => x.id == currentApi);
     } catch (e) {
       return null;
     }
