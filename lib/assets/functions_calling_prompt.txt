@@ -14,15 +14,17 @@ Example:
   { "function": "getCurrentPosition", "parameters": {} }
 ]
 
-
 If no function call is necessary, respond with:
 
 {"function": null }
 
-Do not make up functions — only use the ones explicitly provided in the following list :
+Do not make up functions — only use the ones explicitly provided in the list below. Also only call function when it is needed (if as an AI assistant, you could not answer) or if a specific function exists for the task.
+
+List of functions :
 
 $FUNCTIONS_LIST
 
+Based on the context, you can keep the same language as the user for parameters.
 The following functions are multi-steps and you will be presented previous results and will have to pick the next step :
 
 $MULTISTEP_FUNCTIONS

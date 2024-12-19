@@ -66,4 +66,16 @@ class CacheService {
       return null;
     }
   }
+
+  static Future<void> setLastRequestTime(String modelName) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('last_request_time_$modelName', DateTime.now().millisecondsSinceEpoch);
+  }
+
+  static Future<DateTime?> getLastRequestTime(String modelName) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final int? lastRequestTime = prefs.getInt('last_request_time_$modelName');
+    if (lastRequestTime == null) return null;
+    return DateTime.fromMillisecondsSinceEpoch(lastRequestTime);
+  }
 }

@@ -34,6 +34,25 @@ class LLMRepository {
     return CacheService.getCurrentApi();
   }
 
+  static Future<void> _waitBetweenRequests(LlmApi api) async {
+    if (api.millisecondsDelayBetweenRequests > 0) {
+      final DateTime? lastRequestTime =
+          await CacheService.getLastRequestTime(api.modelName);
+      if (lastRequestTime != null) {
+        final Duration difference = DateTime.now().difference(lastRequestTime);
+        if (difference.inMilliseconds < api.millisecondsDelayBetweenRequests) {
+          await Future<void>.delayed(
+            Duration(
+              milliseconds: api.millisecondsDelayBetweenRequests -
+                  difference.inMilliseconds,
+            ),
+          );
+        }
+      }
+    }
+    await CacheService.setLastRequestTime(api.modelName);
+  }
+
   static Future<String> promptModel({
     LlmApi? api,
     required List<Message> messages,
@@ -42,6 +61,7 @@ class LLMRepository {
   }) async {
     final LlmApi? currentApi = api ?? await CacheService.getCurrentApi();
     if (currentApi == null) throw Exception('No API selected');
+    await _waitBetweenRequests(currentApi);
     return currentApi.isGemini
         ? GeminiService.promptModel(
             apiKey: currentApi.apiKey,
@@ -56,6 +76,7 @@ class LLMRepository {
             modelName: currentApi.modelName,
             messages: await messages.toOpenAiMessages(),
             systemPrompt: systemPrompt,
+            returnJson: returnJson,
           );
   }
 
@@ -80,20 +101,22 @@ class LLMRepository {
             '\$MULTISTEP_FUNCTIONS',
             '',
           );
-    }
+    } 
     String prompt = 'Original user’s message : $lastUserMessage';
     if (previousResponse != null && previousResults != null) {
       prompt += '\nPrevious Skynet’s response: $previousResponse';
       prompt += '\nPrevious results to use : $previousResults';
       prompt += '\nFunctions to call: ${functions.toPromptString()}';
     }
+    await _waitBetweenRequests(currentApi);
     final String response = await (currentApi.isGemini
         ? _geminiService.checkFunctionsCalling(
             systemPrompt: systemPrompt,
             modelName: currentApi.modelName,
             apiKey: currentApi.apiKey,
             prompt: prompt,
-            newConversation: previousResponse == null,
+            newConversation:
+                previousResponse == null,
           )
         : _openAIService.checkFunctionsCalling(
             systemPrompt: systemPrompt,
@@ -101,6 +124,8 @@ class LLMRepository {
             apiKey: currentApi.apiKey,
             modelName: currentApi.modelName,
             prompt: prompt,
+            newConversation:
+                previousResponse == null,
           ));
     final List<FunctionInfo> functionsCalled =
         _parseResponseToFunctions(response, functions);
@@ -115,12 +140,25 @@ class LLMRepository {
     final List<String> functionsNames =
         functions.map((FunctionInfo e) => e.name).toList();
     final List<FunctionInfo> functionsCalled = <FunctionInfo>[];
-    if (json is Map<String, dynamic>) {
-      if (json['function'] == null ||
-          json['function'] == 'null' ||
-          !functionsNames.contains(json['function'])) {
-        return <FunctionInfo>[];
-      } else {
+
+    if (json is List) {
+      for (final dynamic entry in json) {
+        if (entry is Map<String, dynamic> &&
+            functionsNames.contains(entry['function'])) {
+          final FunctionInfo functionInfo = functions.firstWhere(
+            (FunctionInfo e) => e.name == entry['function'],
+          );
+          functionsCalled.add(
+            functionInfo.copyWith(
+              parameters: entry['parameters'] as Map<String, dynamic>?,
+            ),
+          );
+        }
+      }
+    } else if (json is Map<String, dynamic>) {
+      if (json['function'] != null &&
+          json['function'] != 'null' &&
+          functionsNames.contains(json['function'])) {
         final FunctionInfo functionInfo = functions.firstWhere(
           (FunctionInfo e) => e.name == json['function'],
         );
@@ -130,25 +168,8 @@ class LLMRepository {
           ),
         );
       }
-    } else if (json is List) {
-      if (json.isEmpty) {
-        return <FunctionInfo>[];
-      } else {
-        for (final dynamic entry in json) {
-          if (functionsNames
-              .contains((entry as Map<String, dynamic>)['function'])) {
-            final FunctionInfo functionInfo = functions.firstWhere(
-              (FunctionInfo e) => e.name == entry['function'],
-            );
-            functionsCalled.add(
-              functionInfo.copyWith(
-                parameters: entry['parameters'] as Map<String, dynamic>?,
-              ),
-            );
-          }
-        }
-      }
     }
+
     return functionsCalled;
   }
 }

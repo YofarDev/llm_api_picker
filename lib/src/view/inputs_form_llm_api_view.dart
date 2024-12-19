@@ -23,6 +23,9 @@ class _InputsFormLlmApiViewState extends State<InputsFormLlmApiView> {
       TextEditingController(text: _api.apiKey);
   late final TextEditingController modelNameController =
       TextEditingController(text: _api.modelName);
+  late final TextEditingController delayController = TextEditingController(
+    text: _api.millisecondsDelayBetweenRequests.toString(),
+  );
   late bool _isGemini = _api.isGemini;
 
   @override
@@ -80,6 +83,13 @@ class _InputsFormLlmApiViewState extends State<InputsFormLlmApiView> {
               controller: modelNameController,
               decoration: const InputDecoration(labelText: 'Model Name'),
             ),
+            TextField(
+              controller: delayController,
+              decoration: const InputDecoration(
+                labelText: 'Delay between requests (milliseconds)',
+              ),
+              keyboardType: TextInputType.number,
+            ),
           ],
         ),
       ),
@@ -117,6 +127,9 @@ class _InputsFormLlmApiViewState extends State<InputsFormLlmApiView> {
               apiKey: apiKeyController.text,
               modelName: modelNameController.text,
               isGemini: _isGemini,
+              millisecondsDelayBetweenRequests: int.tryParse(
+                delayController.text,
+              ) ?? 0,
             );
             Navigator.of(context).pop(
               api,
