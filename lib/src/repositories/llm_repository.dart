@@ -1,8 +1,10 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../../llm_api_picker.dart';
+import '../utils/extensions.dart';
 
 class LLMRepository {
   late GeminiService _geminiService;
@@ -58,10 +60,16 @@ class LLMRepository {
     required List<Message> messages,
     String? systemPrompt,
     bool returnJson = false,
+    bool debugLogs = false,
   }) async {
     final LlmApi? currentApi = api ?? await CacheService.getCurrentApi();
     if (currentApi == null) throw Exception('No API selected');
     await _waitBetweenRequests(currentApi);
+    if (debugLogs) {
+      debugPrint(
+        '### Request sent to ${api!.modelName} ###\n${messages.toString().safeSubstring(0, 500)}',
+      );
+    }
     return currentApi.isGemini
         ? GeminiService.promptModel(
             apiKey: currentApi.apiKey,
@@ -78,6 +86,49 @@ class LLMRepository {
             systemPrompt: systemPrompt,
             returnJson: returnJson,
           );
+  }
+
+  static Future<Stream<String>> promptModelStream({
+    LlmApi? api,
+    required List<Message> messages,
+    String? systemPrompt,
+    bool returnJson = false,
+    bool debugLogs = false,
+  }) async {
+    final LlmApi? currentApi = api ?? await CacheService.getCurrentApi();
+    if (currentApi == null) throw Exception('No API selected');
+    await _waitBetweenRequests(currentApi);
+    if (debugLogs) {
+      debugPrint(
+        '### Request sent to ${api!.modelName} ###\n${messages.toString().safeSubstring(0, 500)}',
+      );
+    }
+    if (currentApi.isGemini) {
+      return GeminiService.promptModelStream(
+        apiKey: currentApi.apiKey,
+        modelName: currentApi.modelName,
+        content: await messages.toGeminiMessages(),
+        systemPrompt: systemPrompt,
+        returnJson: returnJson,
+      );
+    } else {
+      final List<Map<String, dynamic>> openAiMessages =
+          await messages.toOpenAiMessages();
+      if (systemPrompt != null) {
+        openAiMessages.insert(
+          0,
+          <String, dynamic>{'role': 'system', 'content': systemPrompt},
+        );
+      }
+      return OpenAIService.promptModelStream(
+        apiUrl: currentApi.url,
+        apiKey: currentApi.apiKey,
+        modelName: currentApi.modelName,
+        messages: openAiMessages,
+        returnJson: returnJson,
+        debugLogs: debugLogs,
+      );
+    }
   }
 
   Future<(String, List<FunctionInfo>)> checkFunctionsCalling({
@@ -101,7 +152,7 @@ class LLMRepository {
             '\$MULTISTEP_FUNCTIONS',
             '',
           );
-    } 
+    }
     String prompt = 'Original user’s message : $lastUserMessage';
     if (previousResponse != null && previousResults != null) {
       prompt += '\nPrevious Skynet’s response: $previousResponse';
@@ -115,8 +166,7 @@ class LLMRepository {
             modelName: currentApi.modelName,
             apiKey: currentApi.apiKey,
             prompt: prompt,
-            newConversation:
-                previousResponse == null,
+            newConversation: previousResponse == null,
           )
         : _openAIService.checkFunctionsCalling(
             systemPrompt: systemPrompt,
@@ -124,8 +174,7 @@ class LLMRepository {
             apiKey: currentApi.apiKey,
             modelName: currentApi.modelName,
             prompt: prompt,
-            newConversation:
-                previousResponse == null,
+            newConversation: previousResponse == null,
           ));
     final List<FunctionInfo> functionsCalled =
         _parseResponseToFunctions(response, functions);

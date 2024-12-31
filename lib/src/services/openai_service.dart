@@ -5,11 +5,13 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../utils/extensions.dart';
+
 class OpenAIService {
   List<Map<String, dynamic>> _conversationHistory = <Map<String, dynamic>>[];
   String? _currentModelName;
-  String? _currentApiUrl;
-  String? _currentApiKey;
+  late String? _currentApiUrl;
+  late String? _currentApiKey;
 
   Future<String> checkFunctionsCalling({
     String? systemPrompt,
@@ -54,7 +56,6 @@ class OpenAIService {
         <String, dynamic>{'role': 'system', 'content': systemPrompt},
       );
     }
-
     return _sendRequest(
       apiUrl,
       apiKey,
@@ -86,32 +87,104 @@ class OpenAIService {
     String modelName,
     List<Map<String, dynamic>> messages, {
     bool returnJson = false,
+    bool stream = false,
   }) async {
-    final Map<String, String> headers = <String, String>{
-      'Authorization': 'Bearer $apiKey',
-      'Content-Type': 'application/json',
-    };
-
-    final String body = jsonEncode(<String, Object>{
-      'model': modelName,
-      'messages': messages,
-      if (returnJson)
-        'response_format': <String, String>{
-          "type": "json_object",
-        },
-    });
-
     try {
+      final Map<String, String> headers = <String, String>{
+        'Authorization': 'Bearer $apiKey',
+        'Content-Type': 'application/json',
+      };
+      final String body = jsonEncode(<String, Object>{
+        'model': modelName,
+        'messages': messages,
+        'stream': stream,
+        // doesn't seem to work with all APIs
+        // if (returnJson)
+        //   'response_format': <String, String>{
+        //     "type": "json_object",
+        //   },
+      });
+      
       final http.Response response =
           await http.post(Uri.parse(apiUrl), headers: headers, body: body);
 
       if (response.statusCode == 200) {
         return _parseResponse(response);
       } else {
+        debugPrint('### Status code ###\n${response.statusCode}');
         _handleErrorResponse(response);
         return '';
       }
     } catch (e) {
+      debugPrint('### Error ###\n$e');
+      throw Exception(e);
+    }
+  }
+
+  static Stream<String> promptModelStream({
+    required String apiUrl,
+    required String apiKey,
+    required String modelName,
+    required List<Map<String, dynamic>> messages,
+    bool returnJson = false,
+    bool debugLogs = false,
+  }) async* {
+    try {
+      final Map<String, String> headers = <String, String>{
+        'Authorization': 'Bearer $apiKey',
+        'Content-Type': 'application/json',
+      };
+      final String body = jsonEncode(<String, Object>{
+        'model': modelName,
+        'messages': messages,
+        'stream': true,
+        if (returnJson)
+          'response_format': <String, String>{
+            "type": "json_object",
+          },
+      });
+      if (debugLogs) {
+        debugPrint(
+          '### Request sent to $modelName ###\n${messages.toString().safeSubstring(0, 500)}',
+        );
+      }
+
+      final http.StreamedResponse response = await http.Client().send(
+        http.Request('POST', Uri.parse(apiUrl))
+          ..headers.addAll(headers)
+          ..body = body,
+      );
+
+      if (response.statusCode == 200) {
+        await for (final String chunk
+            in response.stream.transform(utf8.decoder)) {
+          for (final String line in chunk.split('\n')) {
+            if (line.trim().isNotEmpty && line.startsWith('data: ')) {
+              final String jsonStr = line.substring(6);
+              if (jsonStr == '[DONE]') break;
+              try {
+                final Map<String, dynamic> json =
+                    jsonDecode(jsonStr) as Map<String, dynamic>;
+                final String content =
+                    json['choices'][0]['delta']['content'] as String? ?? '';
+                if (content.isNotEmpty) {
+                  yield content;
+                }
+              } catch (e) {
+                if (debugLogs) {
+                  debugPrint('### Error parsing JSON ###\n$e');
+                }
+              }
+            }
+          }
+        }
+      } else {
+        _handleErrorResponse(await http.Response.fromStream(response));
+      }
+    } catch (e) {
+      if (debugLogs) {
+        debugPrint('### Error ###\n$e');
+      }
       throw Exception(e);
     }
   }

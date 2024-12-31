@@ -17,6 +17,10 @@ class Message {
     required this.body,
     this.attachedImage,
   });
+
+  @override
+  String toString() =>
+      'Message(role: ${role.name}, body: $body)';
 }
 
 extension LlmMessageExt on List<Message> {
