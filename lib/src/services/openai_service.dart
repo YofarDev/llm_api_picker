@@ -104,12 +104,12 @@ class OpenAIService {
         //     "type": "json_object",
         //   },
       });
-      
+
       final http.Response response =
           await http.post(Uri.parse(apiUrl), headers: headers, body: body);
 
       if (response.statusCode == 200) {
-        return _parseResponse(response);
+        return _parseResponse(response, returnJson: returnJson);
       } else {
         debugPrint('### Status code ###\n${response.statusCode}');
         _handleErrorResponse(response);
@@ -189,16 +189,28 @@ class OpenAIService {
     }
   }
 
-  static String _parseResponse(http.Response response) {
+  static String _ensureJsonString(String input) {
+    final int startIndex = input.indexOf('{');
+    final int endIndex = input.lastIndexOf('}') + 1;
+    return input.substring(startIndex, endIndex);
+  }
+
+  static String _parseResponse(http.Response response,
+      {required bool returnJson}) {
     final Map<String, dynamic> decodedBody =
         jsonDecode(utf8.decode(response.bodyBytes).replaceAll('\n', ''))
             as Map<String, dynamic>;
     debugPrint(decodedBody.toString());
     final dynamic content = decodedBody['choices'][0]['message']['content'];
-    return _formatContent(content);
+    final String formatedString = formatContent(content);
+    if (returnJson) {
+      return _ensureJsonString(formatedString);
+    } else {
+      return formatedString;
+    }
   }
 
-  static String _formatContent(dynamic content) {
+  static String formatContent(dynamic content) {
     if (content is String) {
       return content;
     } else if (content is List) {
