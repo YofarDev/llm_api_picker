@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 class FunctionInfo {
   final String name;
   final String description;
-  final Map<String, dynamic> parameters;
+  final List<Parameter> parameters;
   final FunctionInfo? nextStep;
   final Function function;
+  final Map<String, dynamic>? parametersCalled;
 
   FunctionInfo({
     required this.name,
@@ -11,14 +14,16 @@ class FunctionInfo {
     required this.parameters,
     this.nextStep,
     required this.function,
+    this.parametersCalled,
   });
 
   FunctionInfo copyWith({
     String? name,
     String? description,
-    Map<String, dynamic>? parameters,
+    List<Parameter>? parameters,
     FunctionInfo? nextStep,
     Function? function,
+    Map<String, dynamic>? parametersCalled,
   }) {
     return FunctionInfo(
       name: name ?? this.name,
@@ -26,11 +31,16 @@ class FunctionInfo {
       parameters: parameters ?? this.parameters,
       nextStep: nextStep ?? this.nextStep,
       function: function ?? this.function,
+      parametersCalled: parametersCalled ?? this.parametersCalled,
     );
   }
 
   String toPromptString() {
-    return '{function: $name, description: $description, parameters: $parameters}';
+    final StringBuffer p = StringBuffer();
+    for (final Parameter parameter in parameters) {
+      p.write(parameter.toMap().toString());
+    }
+    return '{function: $name, description: $description, parameters: $p}';
   }
 
   @override
@@ -83,4 +93,41 @@ extension FunctionInfoExt on List<FunctionInfo> {
     );
     return functionInfo;
   }
+}
+
+class Parameter {
+  final String name;
+  final String type;
+  final String description;
+
+  Parameter({
+    required this.name,
+    required this.type,
+    required this.description,
+  });
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'name': name,
+      'type': type,
+      'description': description,
+    };
+  }
+
+  factory Parameter.fromMap(Map<String, dynamic> map) {
+    return Parameter(
+      name: map['name'] as String,
+      type: map['type'] as String,
+      description: map['description'] as String,
+    );
+  }
+
+  String toJson() => json.encode(toMap());
+
+  factory Parameter.fromJson(String source) =>
+      Parameter.fromMap(json.decode(source) as Map<String, dynamic>);
+
+  @override
+  String toString() =>
+      'Parameter(name: $name, type: $type, description: $description)';
 }

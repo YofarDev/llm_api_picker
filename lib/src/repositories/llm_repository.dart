@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -59,6 +60,7 @@ class LLMRepository {
     LlmApi? api,
     required List<Message> messages,
     String? systemPrompt,
+    File? attachedImage,
     bool returnJson = false,
     bool debugLogs = false,
   }) async {
@@ -199,7 +201,7 @@ class LLMRepository {
           );
           functionsCalled.add(
             functionInfo.copyWith(
-              parameters: entry['parameters'] as Map<String, dynamic>?,
+              parametersCalled: entry['parameters'] as Map<String, dynamic>,
             ),
           );
         }
@@ -213,7 +215,7 @@ class LLMRepository {
         );
         functionsCalled.add(
           functionInfo.copyWith(
-            parameters: json['parameters'] as Map<String, dynamic>?,
+            parametersCalled: json['parameters'] as Map<String, dynamic>,
           ),
         );
       }
