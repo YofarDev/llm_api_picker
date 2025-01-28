@@ -148,35 +148,45 @@ class OpenAIService {
           '### Request sent to $modelName ###\n${messages.toString().safeSubstring(0, 500)}',
         );
       }
-
       final http.StreamedResponse response = await http.Client().send(
         http.Request('POST', Uri.parse(apiUrl))
           ..headers.addAll(headers)
           ..body = body,
       );
-
       if (response.statusCode == 200) {
+        StringBuffer buffer = StringBuffer();
         await for (final String chunk
             in response.stream.transform(utf8.decoder)) {
-          for (final String line in chunk.split('\n')) {
-            if (line.trim().isNotEmpty && line.startsWith('data: ')) {
-              final String jsonStr = line.substring(6);
-              if (jsonStr == '[DONE]') break;
-              try {
-                final Map<String, dynamic> json =
-                    jsonDecode(jsonStr) as Map<String, dynamic>;
-                final String content =
-                    json['choices'][0]['delta']['content'] as String? ?? '';
-                if (content.isNotEmpty) {
-                  yield content;
-                }
-              } catch (e) {
-                if (debugLogs) {
-                  debugPrint('### Error parsing JSON ###\n$e');
-                }
+          buffer.write(chunk);
+          while (buffer.toString().contains('\n')) {
+            final int index = buffer.toString().indexOf('\n');
+            final String line = buffer.toString().substring(0, index);
+            buffer = StringBuffer(buffer.toString().substring(index + 1));
+            if (line.trim().isEmpty) continue;
+            if (!line.startsWith('data: ')) continue;
+            final String jsonStr = line.substring(6).trim();
+            if (jsonStr == '[DONE]') break;
+            try {
+              final Map<String, dynamic> json =
+                  jsonDecode(jsonStr) as Map<String, dynamic>;
+              final String? content =
+                  json['choices']?[0]?['delta']?['content'] as String?;
+
+              if (content != null && content.isNotEmpty) {
+                yield content;
               }
+            } catch (e) {
+              if (debugLogs) {
+                debugPrint('### Error parsing JSON ###\n$e');
+                debugPrint('Problematic JSON string: $jsonStr');
+              }
+              continue;
             }
           }
+        }
+        // Handle any remaining content in the buffer
+        if (buffer.isNotEmpty && debugLogs) {
+          debugPrint('Remaining buffer: $buffer');
         }
       } else {
         _handleErrorResponse(await http.Response.fromStream(response));
