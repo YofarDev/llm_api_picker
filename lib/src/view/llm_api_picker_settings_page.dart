@@ -94,7 +94,7 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
                           _buildCheckbox(
-                            label: 'is current API',
+                            label: 'current API',
                             value: api.id == _currentApi?.id,
                             color: Colors.deepPurpleAccent,
                             onChanged: (bool? value) {
@@ -108,7 +108,7 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
                           ),
                           const SizedBox(height: 8),
                           _buildCheckbox(
-                            label: 'is current Small API',
+                            label: 'small API',
                             value: api.id == _currentSmallApi?.id,
                             color: Colors.pinkAccent,
                             onChanged: (bool? value) {
