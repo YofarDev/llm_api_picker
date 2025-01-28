@@ -14,12 +14,13 @@ class LlmApiPickerSettingsPage extends StatefulWidget {
 class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
   final List<LlmApi> _llmApis = <LlmApi>[];
   LlmApi? _currentApi;
+  LlmApi? _currentSmallApi;
 
   @override
   void initState() {
     super.initState();
     _loadLlmApis();
-    _loadCurrentApi();
+    _loadCurrentsApi();
   }
 
   Future<void> _loadLlmApis() async {
@@ -30,10 +31,12 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
     });
   }
 
-  Future<void> _loadCurrentApi() async {
+  Future<void> _loadCurrentsApi() async {
     final LlmApi? currentApi = await LLMRepository.getCurrentApi();
+    final LlmApi? currentSmallApi = await LLMRepository.getCurrentSmallApi();
     setState(() {
       _currentApi = currentApi;
+      _currentSmallApi = currentSmallApi;
     });
   }
 
@@ -82,30 +85,61 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
               itemCount: _llmApis.length,
               itemBuilder: (BuildContext context, int index) {
                 final LlmApi api = _llmApis[index];
-                return ListTile(
-                  leading: Checkbox(
-                    value: api.id == _currentApi?.id,
-                    onChanged: (bool? value) {
-                      if (value == true) {
-                        LLMRepository.setCurrentApi(api);
-                        setState(() {
-                          _currentApi = api;
-                        });
-                      }
-                    },
-                  ),
-                  title: Text(api.modelName),
-                  subtitle: Text(api.url),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
+                return Padding(
+                  padding: const EdgeInsets.only(left:16),
+                  child: Row(
                     children: <Widget>[
-                      IconButton(
-                        icon: const Icon(Icons.edit),
-                        onPressed: () => _editLlmApi(api),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          _buildCheckbox(
+                            label: 'is current API',
+                            value: api.id == _currentApi?.id,
+                            color: Colors.deepPurpleAccent,
+                            onChanged: (bool? value) {
+                              if (value == true) {
+                                LLMRepository.setCurrentApi(api);
+                                setState(() {
+                                  _currentApi = api;
+                                });
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          _buildCheckbox(
+                            label: 'is current Small API',
+                            value: api.id == _currentSmallApi?.id,
+                            color: Colors.pinkAccent,
+                            onChanged: (bool? value) {
+                              if (value == true) {
+                                LLMRepository.setCurrentSmallApi(api);
+                                setState(() {
+                                  _currentSmallApi = api;
+                                });
+                              }
+                            },
+                          ),
+                        ],
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete),
-                        onPressed: () => _deleteLlmApi(api),
+                      Expanded(
+                        child: ListTile(
+                          title: Text(api.modelName),
+                          subtitle: Text(api.url),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              IconButton(
+                                icon: const Icon(Icons.edit),
+                                onPressed: () => _editLlmApi(api),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete),
+                                onPressed: () => _deleteLlmApi(api),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -116,6 +150,30 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
         onPressed: _addLlmApi,
         child: const Icon(Icons.add),
       ),
+    );
+  }
+
+  Widget _buildCheckbox({
+    required String label,
+    required bool value,
+    required Function(bool? value) onChanged,
+    required Color color,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        SizedBox(
+          height: 16,
+          width: 16,
+          child: Checkbox(
+            value: value,
+            onChanged: onChanged,
+            activeColor: color,
+          ),
+        ),
+        const SizedBox(width:8),
+        Text(label, style: const TextStyle(fontSize: 12)),
+      ],
     );
   }
 }

@@ -5,8 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/llm_api.dart';
 
 class CacheService {
-  static const String _savedListKey = 'llms_apis_saved';
-  static const String _currentApiKey = 'current_api';
+  static const String _savedList = 'llms_apis_saved';
+  static const String _currentApi = 'current_api';
+  static const String _currentSmallApi = 'current_small_api';
 
   static Future<List<LlmApi>> getSavedLlmApis() async {
     final List<String> savedList = await _getSavedList();
@@ -19,7 +20,7 @@ class CacheService {
 
   static Future<List<String>> _getSavedList() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final List<String>? savedLlmApisJson = prefs.getStringList(_savedListKey);
+    final List<String>? savedLlmApisJson = prefs.getStringList(_savedList);
     if (savedLlmApisJson == null) return <String>[];
     return savedLlmApisJson;
   }
@@ -28,7 +29,7 @@ class CacheService {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final List<String> list = await _getSavedList();
     list.add(jsonEncode(llmApis.toMap()));
-    await prefs.setStringList(_savedListKey, list);
+    await prefs.setStringList(_savedList, list);
   }
 
   static Future<void> updateExistingEntry(LlmApi llmApis) async {
@@ -40,24 +41,24 @@ class CacheService {
     for (final LlmApi api in list) {
       strList.add(jsonEncode(api.toMap()));
     }
-    await prefs.setStringList(_savedListKey, strList);
+    await prefs.setStringList(_savedList, strList);
   }
 
   static Future<void> deleteEntryList(LlmApi llmApis) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final List<String> list = await _getSavedList();
     list.removeWhere((String x) => x == jsonEncode(llmApis.toMap()));
-    await prefs.setStringList(_savedListKey, list);
+    await prefs.setStringList(_savedList, list);
   }
 
   static Future<void> setCurrentApi(LlmApi llmApis) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_currentApiKey, llmApis.id);
+    await prefs.setString(_currentApi, llmApis.id);
   }
 
   static Future<LlmApi?> getCurrentApi() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? currentApi = prefs.getString(_currentApiKey);
+    final String? currentApi = prefs.getString(_currentApi);
     if (currentApi == null) return null;
     final List<LlmApi> apis = await getSavedLlmApis();
     try {
@@ -78,4 +79,22 @@ class CacheService {
     if (lastRequestTime == null) return null;
     return DateTime.fromMillisecondsSinceEpoch(lastRequestTime);
   }
+
+  static Future<void> setCurrentSmallApi(LlmApi llmApis) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_currentSmallApi, llmApis.id);
+  }
+
+  static Future<LlmApi?> getCurrentSmallApi() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? currentSmallApi = prefs.getString(_currentSmallApi);
+    if (currentSmallApi == null) return null;
+    final List<LlmApi> apis = await getSavedLlmApis();
+    try {
+      return apis.firstWhere((LlmApi x) => x.id == currentSmallApi);
+    } catch (e) {
+      return null;
+    }
+  }
+
 }

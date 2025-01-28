@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:mime/mime.dart';
 
 import '../utils/utils.dart';
 
@@ -10,17 +11,16 @@ enum MessageRole { user, assistant }
 class Message {
   MessageRole role;
   String body;
-  String? attachedImage;
+  String? attachedFile;
 
   Message({
     required this.role,
     required this.body,
-    this.attachedImage,
+    this.attachedFile,
   });
 
   @override
-  String toString() =>
-      'Message(role: ${role.name}, body: $body)';
+  String toString() => 'Message(role: ${role.name}, body: $body)';
 }
 
 extension LlmMessageExt on List<Message> {
@@ -30,14 +30,14 @@ extension LlmMessageExt on List<Message> {
       if (message.role == MessageRole.user) {
         content.add(
           Content.text(
-            '${message.body}${(message.attachedImage != null && message != last) ? '\n${message.attachedImage}' : ''}',
+            '${message.body}${(message.attachedFile != null && message != last) ? '\n${message.attachedFile}' : ''}',
           ),
         );
-        if (message.attachedImage != null && message == last) {
+        if (message.attachedFile != null && message == last) {
           content.add(
             Content.data(
-              Utils.getMimeType(message.attachedImage!),
-              await Utils.getBytesFromFile(message.attachedImage!),
+              Utils.getMimeType(message.attachedFile!),
+              await Utils.getBytesFromFile(message.attachedFile!),
             ),
           );
         }
@@ -52,14 +52,16 @@ extension LlmMessageExt on List<Message> {
     final List<Map<String, dynamic>> messages = <Map<String, dynamic>>[];
     for (final Message message in this) {
       if (message.role == MessageRole.user) {
-        final bool attachImage =
-            message.attachedImage != null && message == last;
-        String? base64Image;
-        if (attachImage) {
-          final File imageFile = File(message.attachedImage!);
-          if (await imageFile.exists()) {
-            final List<int> imageBytes = await imageFile.readAsBytes();
-            base64Image = base64Encode(imageBytes);
+        final bool hasAttachedFile =
+            message.attachedFile != null && message == last;
+        String? base64File;
+        String? mimeType;
+        if (hasAttachedFile) {
+          final File file = File(message.attachedFile!);
+          if (await file.exists()) {
+            final List<int> fileBytes = await file.readAsBytes();
+            base64File = base64Encode(fileBytes);
+            mimeType = lookupMimeType(file.path) ?? 'image/jpeg';
           }
         }
         messages.add(<String, dynamic>{
@@ -68,13 +70,13 @@ extension LlmMessageExt on List<Message> {
             <String, String>{
               'type': 'text',
               'text':
-                  '${message.body}${message.attachedImage != null && message != last ? '\n${message.attachedImage}' : ''}',
+                  '${message.body}${message.attachedFile != null && message != last ? '\n${message.attachedFile}' : ''}',
             },
-            if (attachImage)
+            if (hasAttachedFile)
               <String, dynamic>{
                 'type': 'image_url',
                 'image_url': <String, String>{
-                  'url': 'data:image/jpeg;base64,$base64Image',
+                  'url': 'data:$mimeType;base64,$base64File',
                 },
               },
           ],

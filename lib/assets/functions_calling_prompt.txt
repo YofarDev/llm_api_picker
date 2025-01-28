@@ -24,7 +24,6 @@ List of functions :
 
 $FUNCTIONS_LIST
 
-Based on the context, you can keep the same language as the user for parameters.
 The following functions are multi-steps and you will be presented previous results and will have to pick the next step :
 
 $MULTISTEP_FUNCTIONS

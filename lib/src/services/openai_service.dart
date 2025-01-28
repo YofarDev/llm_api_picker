@@ -195,8 +195,10 @@ class OpenAIService {
     return input.substring(startIndex, endIndex);
   }
 
-  static String _parseResponse(http.Response response,
-      {required bool returnJson}) {
+  static String _parseResponse(
+    http.Response response, {
+    required bool returnJson,
+  }) {
     final Map<String, dynamic> decodedBody =
         jsonDecode(utf8.decode(response.bodyBytes).replaceAll('\n', ''))
             as Map<String, dynamic>;
