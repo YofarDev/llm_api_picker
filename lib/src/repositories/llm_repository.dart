@@ -7,9 +7,6 @@ import '../../llm_api_picker.dart';
 import '../utils/extensions.dart';
 
 class LLMRepository {
-  late GeminiService _geminiService;
-  late OpenAIService _openAIService;
-
   static Future<void> saveLlmApi(LlmApi llmApi) async {
     await CacheService.updateSavedList(
       llmApi,
@@ -63,21 +60,21 @@ class LLMRepository {
     await CacheService.setLastRequestTime(api.modelName);
   }
 
-/// Sends a prompt to a language model and returns the response as a String.
-///
-/// [api] - The API to use for the request. If not provided, the function will use the default API
-///         or the small API based on the [useSmallApi] flag.
-///
-/// [messages] - A list of messages to send to the language model. Each message should be an instance
-///              of the [Message] class.
-///
-/// [systemPrompt] - An optional system prompt that can be used to guide the model's behavior.
-///
-/// [returnJson] - If `true`, the function will return the response in JSON format. Defaults to `false`.
-///
-/// [debugLogs] - If `true`, debug logs will be enabled for the request. Defaults to `false`.
-///
-/// [useSmallApi] - If `true`, the function will use the small API if no API is provided.
+  /// Sends a prompt to a language model and returns the response as a String.
+  ///
+  /// [api] - The API to use for the request. If not provided, the function will use the default API
+  ///         or the small API based on the [useSmallApi] flag.
+  ///
+  /// [messages] - A list of messages to send to the language model. Each message should be an instance
+  ///              of the [Message] class.
+  ///
+  /// [systemPrompt] - An optional system prompt that can be used to guide the model's behavior.
+  ///
+  /// [returnJson] - If `true`, the function will return the response in JSON format. Defaults to `false`.
+  ///
+  /// [debugLogs] - If `true`, debug logs will be enabled for the request. Defaults to `false`.
+  ///
+  /// [useSmallApi] - If `true`, the function will use the small API if no API is provided.
   static Future<String> promptModel({
     LlmApi? api,
     required List<Message> messages,
@@ -85,9 +82,11 @@ class LLMRepository {
     bool returnJson = false,
     bool debugLogs = false,
     bool useSmallApi = false,
-    
   }) async {
-    final LlmApi? currentApi = api ?? (useSmallApi ? await CacheService.getCurrentSmallApi() : await CacheService.getCurrentApi());
+    final LlmApi? currentApi = api ??
+        (useSmallApi
+            ? await CacheService.getCurrentSmallApi()
+            : await CacheService.getCurrentApi());
     if (currentApi == null) throw Exception('No API selected');
     await _waitBetweenRequests(currentApi);
     if (debugLogs) {
@@ -113,21 +112,21 @@ class LLMRepository {
           );
   }
 
-/// Sends a prompt to a language model and returns the response as a Stream<String>.
-///
-/// [api] - The API to use for the request. If not provided, the function will use the default API
-///         or the small API based on the [useSmallApi] flag.
-///
-/// [messages] - A list of messages to send to the language model. Each message should be an instance
-///              of the [Message] class.
-///
-/// [systemPrompt] - An optional system prompt that can be used to guide the model's behavior.
-///
-/// [returnJson] - If `true`, the function will return the response in JSON format. Defaults to `false`.
-///
-/// [debugLogs] - If `true`, debug logs will be enabled for the request. Defaults to `false`.
-///
-/// [useSmallApi] - If `true`, the function will use the small API if no API is provided.
+  /// Sends a prompt to a language model and returns the response as a Stream<String>.
+  ///
+  /// [api] - The API to use for the request. If not provided, the function will use the default API
+  ///         or the small API based on the [useSmallApi] flag.
+  ///
+  /// [messages] - A list of messages to send to the language model. Each message should be an instance
+  ///              of the [Message] class.
+  ///
+  /// [systemPrompt] - An optional system prompt that can be used to guide the model's behavior.
+  ///
+  /// [returnJson] - If `true`, the function will return the response in JSON format. Defaults to `false`.
+  ///
+  /// [debugLogs] - If `true`, debug logs will be enabled for the request. Defaults to `false`.
+  ///
+  /// [useSmallApi] - If `true`, the function will use the small API if no API is provided.
   static Future<Stream<String>> promptModelStream({
     LlmApi? api,
     required List<Message> messages,
@@ -136,7 +135,10 @@ class LLMRepository {
     bool debugLogs = false,
     bool useSmallApi = false,
   }) async {
-    final LlmApi? currentApi = api ?? (useSmallApi ? await CacheService.getCurrentSmallApi() : await CacheService.getCurrentApi());
+    final LlmApi? currentApi = api ??
+        (useSmallApi
+            ? await CacheService.getCurrentSmallApi()
+            : await CacheService.getCurrentApi());
     if (currentApi == null) throw Exception('No API selected');
     await _waitBetweenRequests(currentApi);
     if (debugLogs) {
@@ -185,6 +187,65 @@ class LLMRepository {
   ///
   /// [functions] - A list of functions to call. The functions must be in the
   ///               format of [FunctionInfo] objects.
+  /// [useSmallApi] - If `true`, the function will use the small API if no API
+  ///                 is provided. Defaults to `false`.
+  ///
+  /// The function returns a tuple containing the response from the language
+  /// model and a list of functions that were called by the generated code.
+  Future<(String, List<FunctionInfo>)> checkFunctionsCalling({
+    LlmApi? api,
+    required List<Message> messages,
+    required String lastUserMessage,
+    required List<FunctionInfo> functions,
+    bool useSmallApi = true,
+  }) async {
+    final LlmApi? currentApi = api ??
+        (useSmallApi
+            ? await CacheService.getCurrentSmallApi()
+            : await CacheService.getCurrentApi());
+    if (currentApi == null) throw Exception('No API selected');
+    String? systemPrompt;
+    systemPrompt = (await rootBundle.loadString(
+      'packages/llm_api_picker/lib/assets/functions_calling_prompt.txt',
+    ))
+        .replaceAll('\$FUNCTIONS_LIST', functions.toPromptString());
+    final String prompt =
+        'Analyze the following user message and determine if a function call is needed:\n"""$lastUserMessage"""\nYou can use previous messages for context if needed. Respond in JSON format with functions to call, and {"function": null} if none are needed.';
+    await _waitBetweenRequests(currentApi);
+    final String response = await (currentApi.isGemini
+        ? GeminiService.checkFunctionsCalling(
+            systemPrompt: systemPrompt,
+            modelName: currentApi.modelName,
+            apiKey: currentApi.apiKey,
+            content: await messages.toGeminiMessages(),
+            prompt: prompt,
+          )
+        : OpenAIService.checkFunctionsCalling(
+            systemPrompt: systemPrompt,
+            apiUrl: currentApi.url,
+            apiKey: currentApi.apiKey,
+            modelName: currentApi.modelName,
+            messages: await messages.toOpenAiMessages(),
+            prompt: prompt,
+          ));
+    final List<FunctionInfo> functionsCalled =
+        _parseResponseToFunctions(response, functions);
+    return (response, functionsCalled);
+  }
+
+  /// This function takes a user's conversation and a list of functions to call,
+  /// and uses the language model to generate code that calls the functions.
+  ///
+  /// The function takes the following parameters:
+  ///
+  /// [api] - The API to use to make the request. If not provided, the
+  ///         function will use the default API or the small API based on the
+  ///         [useSmallApi] flag.
+  ///
+  /// [lastUserMessage] - The user's message that triggered the code generation.
+  ///
+  /// [functions] - A list of functions to call. The functions must be in the
+  ///               format of [FunctionInfo] objects.
   ///
   /// [previousResponse] - If the code generation is a follow-up to a previous
   ///                      generation, this is the response from the previous
@@ -199,30 +260,29 @@ class LLMRepository {
   ///
   /// The function returns a tuple containing the response from the language
   /// model and a list of functions that were called by the generated code.
-  Future<(String, List<FunctionInfo>)> checkFunctionsCalling({
+  Future<(String, List<FunctionInfo>)> checkFunctionsCallingMultisteps({
     LlmApi? api,
+    required List<Message> messages,
     required String lastUserMessage,
     required List<FunctionInfo> functions,
     String? previousResponse,
     String? previousResults,
-    bool useSmallApi = false,
+    bool useSmallApi = true,
   }) async {
-    final LlmApi? currentApi = api ?? (useSmallApi ? await CacheService.getCurrentSmallApi() : await CacheService.getCurrentApi());
+    final LlmApi? currentApi = api ??
+        (useSmallApi
+            ? await CacheService.getCurrentSmallApi()
+            : await CacheService.getCurrentApi());
     if (currentApi == null) throw Exception('No API selected');
     String? systemPrompt;
-    if (previousResponse == null && previousResults == null) {
-      _geminiService = GeminiService();
-      _openAIService = OpenAIService();
-      systemPrompt = (await rootBundle.loadString(
-        'packages/llm_api_picker/lib/assets/functions_calling_prompt.txt',
-      ))
-          .replaceAll('\$FUNCTIONS_LIST', functions.toPromptString())
-          .replaceAll(
-            '\$MULTISTEP_FUNCTIONS',
-            '',
-          );
-    }
-    debugPrint(systemPrompt);
+    systemPrompt = (await rootBundle.loadString(
+      'packages/llm_api_picker/lib/assets/functions_calling_prompt_multi.txt',
+    ))
+        .replaceAll('\$FUNCTIONS_LIST', functions.toPromptString())
+        .replaceAll(
+          '\$MULTISTEP_FUNCTIONS',
+          '',
+        );
     String prompt = 'Original user’s message : $lastUserMessage';
     if (previousResponse != null && previousResults != null) {
       prompt += '\nPrevious Skynet’s response: $previousResponse';
@@ -231,20 +291,20 @@ class LLMRepository {
     }
     await _waitBetweenRequests(currentApi);
     final String response = await (currentApi.isGemini
-        ? _geminiService.checkFunctionsCalling(
+        ? GeminiService.checkFunctionsCalling(
             systemPrompt: systemPrompt,
             modelName: currentApi.modelName,
             apiKey: currentApi.apiKey,
+            content: await messages.toGeminiMessages(),
             prompt: prompt,
-            newConversation: previousResponse == null,
           )
-        : _openAIService.checkFunctionsCalling(
+        : OpenAIService.checkFunctionsCalling(
             systemPrompt: systemPrompt,
             apiUrl: currentApi.url,
             apiKey: currentApi.apiKey,
             modelName: currentApi.modelName,
+            messages: await messages.toOpenAiMessages(),
             prompt: prompt,
-            newConversation: previousResponse == null,
           ));
     final List<FunctionInfo> functionsCalled =
         _parseResponseToFunctions(response, functions);

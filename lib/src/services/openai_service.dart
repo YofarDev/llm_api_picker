@@ -8,37 +8,25 @@ import 'package:http/http.dart' as http;
 import '../utils/extensions.dart';
 
 class OpenAIService {
-  List<Map<String, dynamic>> _conversationHistory = <Map<String, dynamic>>[];
-  String? _currentModelName;
-  late String? _currentApiUrl;
-  late String? _currentApiKey;
-
-  Future<String> checkFunctionsCalling({
-    String? systemPrompt,
-    String? modelName,
+  static Future<String> checkFunctionsCalling({
+    required String systemPrompt,
+    required String modelName,
     required String apiUrl,
     required String apiKey,
+    required List<Map<String, dynamic>> messages,
     required String prompt,
     bool newConversation = true,
   }) async {
-    if (newConversation) {
-      _initializeConversation(systemPrompt, modelName, apiUrl, apiKey);
-    } else {
-      _conversationHistory.removeLast();
-    }
-    _conversationHistory
-        .add(<String, dynamic>{'role': 'user', 'content': prompt});
-    debugPrint(_conversationHistory.toString());
+    messages.add(
+      <String, dynamic>{'role': 'user', 'content': prompt},
+    );
     final String responseText = await _sendRequest(
-      _currentApiUrl!,
-      _currentApiKey!,
-      _currentModelName!,
-      _conversationHistory,
+      apiUrl,
+      apiKey,
+      modelName,
+      messages,
       returnJson: true,
     );
-    // _conversationHistory.add(
-    //   <String, dynamic>{'role': 'assistant', 'content': responseText},
-    // );
     return responseText;
   }
 
@@ -63,22 +51,6 @@ class OpenAIService {
       messages,
       returnJson: returnJson,
     );
-  }
-
-  void _initializeConversation(
-    String? systemPrompt,
-    String? modelName,
-    String apiUrl,
-    String apiKey,
-  ) {
-    _conversationHistory = <Map<String, dynamic>>[];
-    _currentModelName = modelName;
-    _currentApiUrl = apiUrl;
-    _currentApiKey = apiKey;
-    if (systemPrompt != null) {
-      _conversationHistory
-          .add(<String, dynamic>{'role': 'system', 'content': systemPrompt});
-    }
   }
 
   static Future<String> _sendRequest(

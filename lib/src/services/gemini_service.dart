@@ -3,33 +3,31 @@ import 'dart:async';
 import 'package:google_generative_ai/google_generative_ai.dart';
 
 class GeminiService {
-  late ChatSession _functionsChat;
-
-  Future<String> checkFunctionsCalling({
-    String? systemPrompt,
-    String? modelName,
-    String? apiKey,
+  static Future<String> checkFunctionsCalling({
+    required String systemPrompt,
+    required String modelName,
+    required String apiKey,
+    required List<Content> content,
     required String prompt,
-    bool newConversation = true,
   }) async {
-    if (newConversation) {
-      final GenerativeModel model = GenerativeModel(
-        model: modelName!,
-        apiKey: apiKey!,
-        generationConfig:
-            GenerationConfig(responseMimeType: 'application/json'),
-        safetySettings: <SafetySetting>[
-          SafetySetting(HarmCategory.sexuallyExplicit, HarmBlockThreshold.none),
-          SafetySetting(HarmCategory.dangerousContent, HarmBlockThreshold.none),
-          SafetySetting(HarmCategory.hateSpeech, HarmBlockThreshold.none),
-          SafetySetting(HarmCategory.harassment, HarmBlockThreshold.none),
-        ],
-        systemInstruction: Content.system(systemPrompt!),
-      );
-      _functionsChat = model.startChat();
-    }
-    final GenerateContentResponse response = await _functionsChat.sendMessage(
+    final GenerativeModel model = GenerativeModel(
+      model: modelName,
+      apiKey: apiKey,
+      safetySettings: <SafetySetting>[
+        SafetySetting(HarmCategory.sexuallyExplicit, HarmBlockThreshold.none),
+        SafetySetting(HarmCategory.dangerousContent, HarmBlockThreshold.none),
+        SafetySetting(HarmCategory.hateSpeech, HarmBlockThreshold.none),
+        SafetySetting(HarmCategory.harassment, HarmBlockThreshold.none),
+      ],
+      systemInstruction: Content.system(systemPrompt),
+      generationConfig: GenerationConfig(responseMimeType: 'application/json'),
+    );
+    final List<Content> c = <Content>[
+      ...content,
       Content.text(prompt),
+    ];
+    final GenerateContentResponse response = await model.generateContent(
+      c,
     );
     return response.text ?? '';
   }
