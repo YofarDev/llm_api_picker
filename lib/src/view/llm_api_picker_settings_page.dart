@@ -64,7 +64,7 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
     await _loadLlmApis();
   }
 
-  Future<LlmApi?> _showLlmApiDialog({LlmApi? api}) async {
+  Future<LlmApi?> _showLlmApiDialog({LlmApi? api})  {
     return showDialog<LlmApi>(
       context: context,
       builder: (BuildContext context) {
@@ -86,7 +86,7 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
               itemBuilder: (BuildContext context, int index) {
                 final LlmApi api = _llmApis[index];
                 return Padding(
-                  padding: const EdgeInsets.only(left:16),
+                  padding: const EdgeInsets.only(left: 16),
                   child: Row(
                     children: <Widget>[
                       Column(
@@ -171,7 +171,7 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
             activeColor: color,
           ),
         ),
-        const SizedBox(width:8),
+        const SizedBox(width: 8),
         Text(label, style: const TextStyle(fontSize: 12)),
       ],
     );

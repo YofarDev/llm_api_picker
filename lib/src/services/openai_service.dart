@@ -16,6 +16,7 @@ class OpenAIService {
     required List<Map<String, dynamic>> messages,
     required String prompt,
     bool newConversation = true,
+    double? temperature,
   }) async {
     messages.add(
       <String, dynamic>{'role': 'user', 'content': prompt},
@@ -26,6 +27,7 @@ class OpenAIService {
       modelName,
       messages,
       returnJson: true,
+      temperature: temperature,
     );
     return responseText;
   }
@@ -37,15 +39,19 @@ class OpenAIService {
     required List<Map<String, dynamic>> messages,
     String? systemPrompt,
     bool returnJson = false,
-  }) async {
+    double? temperature,
+  }) {
     if (systemPrompt != null) {
       messages.insert(
         0,
         <String, dynamic>{'role': 'system', 'content': systemPrompt},
       );
     }
+    final String url = apiUrl.endsWith('/chat/completions')
+        ? apiUrl
+        : '$apiUrl/chat/completions';
     return _sendRequest(
-      apiUrl,
+      url,
       apiKey,
       modelName,
       messages,
@@ -60,6 +66,7 @@ class OpenAIService {
     List<Map<String, dynamic>> messages, {
     bool returnJson = false,
     bool stream = false,
+    double? temperature,
   }) async {
     try {
       final Map<String, String> headers = <String, String>{
@@ -70,6 +77,7 @@ class OpenAIService {
         'model': modelName,
         'messages': messages,
         'stream': stream,
+        if (temperature != null && temperature > 0) 'temperature': temperature,
         // doesn't seem to work with all APIs
         // if (returnJson)
         //   'response_format': <String, String>{
@@ -100,6 +108,7 @@ class OpenAIService {
     required List<Map<String, dynamic>> messages,
     bool returnJson = false,
     bool debugLogs = false,
+    double? temperature,
   }) async* {
     try {
       final Map<String, String> headers = <String, String>{
@@ -110,6 +119,7 @@ class OpenAIService {
         'model': modelName,
         'messages': messages,
         'stream': true,
+        if (temperature != null && temperature > 0) 'temperature': temperature,
         if (returnJson)
           'response_format': <String, String>{
             "type": "json_object",
@@ -120,8 +130,11 @@ class OpenAIService {
           '### Request sent to $modelName ###\n${messages.toString().safeSubstring(0, 500)}',
         );
       }
+      final String url = apiUrl.endsWith('/chat/completions')
+          ? apiUrl
+          : '$apiUrl/chat/completions';
       final http.StreamedResponse response = await http.Client().send(
-        http.Request('POST', Uri.parse(apiUrl))
+        http.Request('POST', Uri.parse(url))
           ..headers.addAll(headers)
           ..body = body,
       );

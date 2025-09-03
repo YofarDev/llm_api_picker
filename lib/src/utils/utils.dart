@@ -8,7 +8,7 @@ class Utils {
     return lookupMimeType(path) ?? 'image/jpeg';
   }
 
-  static Future<Uint8List> getBytesFromFile(String filePath) async {
+  static Future<Uint8List> getBytesFromFile(String filePath) {
     final File file = File(filePath);
     return file.readAsBytes();
   }

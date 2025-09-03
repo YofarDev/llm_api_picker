@@ -9,6 +9,7 @@ class GeminiService {
     required String apiKey,
     required List<Content> content,
     required String prompt,
+    double? temperature,
   }) async {
     final GenerativeModel model = GenerativeModel(
       model: modelName,
@@ -20,7 +21,10 @@ class GeminiService {
         SafetySetting(HarmCategory.harassment, HarmBlockThreshold.none),
       ],
       systemInstruction: Content.system(systemPrompt),
-      generationConfig: GenerationConfig(responseMimeType: 'application/json'),
+      generationConfig: GenerationConfig(
+        responseMimeType: 'application/json',
+        temperature: temperature,
+      ),
     );
     final List<Content> c = <Content>[
       ...content,
@@ -38,6 +42,7 @@ class GeminiService {
     required List<Content> content,
     String? systemPrompt,
     bool returnJson = false,
+    double? temperature,
   }) async {
     final GenerativeModel model = GenerativeModel(
       model: modelName,
@@ -50,9 +55,10 @@ class GeminiService {
       ],
       systemInstruction:
           systemPrompt != null ? Content.system(systemPrompt) : null,
-      generationConfig: returnJson
-          ? GenerationConfig(responseMimeType: 'application/json')
-          : null,
+      generationConfig: GenerationConfig(
+        responseMimeType: returnJson ? 'application/json' : null,
+        temperature: temperature,
+      ),
     );
     final GenerateContentResponse response =
         await model.generateContent(content);
@@ -65,6 +71,7 @@ class GeminiService {
     required List<Content> content,
     String? systemPrompt,
     bool returnJson = false,
+    double? temperature,
   }) async* {
     final GenerativeModel model = GenerativeModel(
       model: modelName,
@@ -77,9 +84,10 @@ class GeminiService {
       ],
       systemInstruction:
           systemPrompt != null ? Content.system(systemPrompt) : null,
-      generationConfig: returnJson
-          ? GenerationConfig(responseMimeType: 'application/json')
-          : null,
+      generationConfig: GenerationConfig(
+        responseMimeType: returnJson ? 'application/json' : null,
+        temperature: temperature,
+      ),
     );
     final Stream<GenerateContentResponse> responses =
         model.generateContentStream(content);

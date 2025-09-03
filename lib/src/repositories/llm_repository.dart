@@ -17,7 +17,7 @@ class LLMRepository {
     await CacheService.deleteEntryList(llmApi);
   }
 
-  static Future<List<LlmApi>> getSavedLlmApis() async {
+  static Future<List<LlmApi>> getSavedLlmApis() {
     return CacheService.getSavedLlmApis();
   }
 
@@ -29,7 +29,7 @@ class LLMRepository {
     await CacheService.setCurrentApi(llmApi);
   }
 
-  static Future<LlmApi?> getCurrentApi() async {
+  static Future<LlmApi?> getCurrentApi() {
     return CacheService.getCurrentApi();
   }
 
@@ -37,7 +37,7 @@ class LLMRepository {
     await CacheService.setCurrentSmallApi(llmApi);
   }
 
-  static Future<LlmApi?> getCurrentSmallApi() async {
+  static Future<LlmApi?> getCurrentSmallApi() {
     return CacheService.getCurrentSmallApi();
   }
 
@@ -82,6 +82,7 @@ class LLMRepository {
     bool returnJson = false,
     bool debugLogs = false,
     bool useSmallApi = false,
+    double? temperature,
   }) async {
     final LlmApi? currentApi = api ??
         (useSmallApi
@@ -101,6 +102,7 @@ class LLMRepository {
             content: await messages.toGeminiMessages(),
             systemPrompt: systemPrompt,
             returnJson: returnJson,
+            temperature: temperature,
           )
         : OpenAIService.promptModel(
             apiUrl: currentApi.url,
@@ -109,10 +111,11 @@ class LLMRepository {
             messages: await messages.toOpenAiMessages(),
             systemPrompt: systemPrompt,
             returnJson: returnJson,
+            temperature: temperature,
           );
   }
 
-  /// Sends a prompt to a language model and returns the response as a Stream<String>.
+  /// Sends a prompt to a language model and returns the response as a Stream(String)
   ///
   /// [api] - The API to use for the request. If not provided, the function will use the default API
   ///         or the small API based on the [useSmallApi] flag.
@@ -134,6 +137,7 @@ class LLMRepository {
     bool returnJson = false,
     bool debugLogs = false,
     bool useSmallApi = false,
+    double? temperature,
   }) async {
     final LlmApi? currentApi = api ??
         (useSmallApi
@@ -153,6 +157,7 @@ class LLMRepository {
         content: await messages.toGeminiMessages(),
         systemPrompt: systemPrompt,
         returnJson: returnJson,
+        temperature: temperature,
       );
     } else {
       final List<Map<String, dynamic>> openAiMessages =
@@ -170,6 +175,7 @@ class LLMRepository {
         messages: openAiMessages,
         returnJson: returnJson,
         debugLogs: debugLogs,
+        temperature: temperature,
       );
     }
   }
@@ -198,6 +204,7 @@ class LLMRepository {
     required String lastUserMessage,
     required List<FunctionInfo> functions,
     bool useSmallApi = true,
+    double? temperature,
   }) async {
     final LlmApi? currentApi = api ??
         (useSmallApi
@@ -219,6 +226,7 @@ class LLMRepository {
             apiKey: currentApi.apiKey,
             content: await messages.toGeminiMessages(),
             prompt: prompt,
+            temperature: temperature,
           )
         : OpenAIService.checkFunctionsCalling(
             systemPrompt: systemPrompt,
@@ -227,6 +235,7 @@ class LLMRepository {
             modelName: currentApi.modelName,
             messages: await messages.toOpenAiMessages(),
             prompt: prompt,
+            temperature: temperature,
           ));
     final List<FunctionInfo> functionsCalled =
         _parseResponseToFunctions(response, functions);
@@ -268,6 +277,7 @@ class LLMRepository {
     String? previousResponse,
     String? previousResults,
     bool useSmallApi = true,
+    double? temperature,
   }) async {
     final LlmApi? currentApi = api ??
         (useSmallApi
@@ -297,6 +307,7 @@ class LLMRepository {
             apiKey: currentApi.apiKey,
             content: await messages.toGeminiMessages(),
             prompt: prompt,
+            temperature: temperature,
           )
         : OpenAIService.checkFunctionsCalling(
             systemPrompt: systemPrompt,
@@ -305,6 +316,7 @@ class LLMRepository {
             modelName: currentApi.modelName,
             messages: await messages.toOpenAiMessages(),
             prompt: prompt,
+            temperature: temperature,
           ));
     final List<FunctionInfo> functionsCalled =
         _parseResponseToFunctions(response, functions);

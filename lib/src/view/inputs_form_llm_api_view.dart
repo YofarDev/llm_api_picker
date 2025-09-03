@@ -77,7 +77,6 @@ class _InputsFormLlmApiViewState extends State<InputsFormLlmApiView> {
             TextField(
               controller: apiKeyController,
               decoration: const InputDecoration(labelText: 'API Key'),
-              obscureText: true,
             ),
             TextField(
               controller: modelNameController,
