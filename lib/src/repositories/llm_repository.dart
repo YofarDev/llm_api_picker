@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../llm_api_picker.dart';
 import '../utils/extensions.dart';
@@ -83,6 +84,9 @@ class LLMRepository {
     bool debugLogs = false,
     bool useSmallApi = false,
     double? temperature,
+    bool useMemory = true,
+    String? conversationId,
+    String? userContext,
   }) async {
     final LlmApi? currentApi = api ??
         (useSmallApi
@@ -90,29 +94,83 @@ class LLMRepository {
             : await CacheService.getCurrentApi());
     if (currentApi == null) throw Exception('No API selected');
     await _waitBetweenRequests(currentApi);
+
+    // Memory integration: enhance system prompt with memory context
+    String? enhancedSystemPrompt = systemPrompt;
+    if (useMemory && await MemoryService.isMemoryEnabled()) {
+      try {
+        final String memoryContext = await MemoryService.getMemoryContext(
+          userContext: userContext ?? 'default_user',
+          conversationId: conversationId,
+        );
+
+        if (memoryContext.isNotEmpty) {
+          enhancedSystemPrompt = systemPrompt != null
+              ? '$systemPrompt\n\nRELEVANT MEMORY CONTEXT:\n$memoryContext'
+              : 'RELEVANT MEMORY CONTEXT:\n$memoryContext';
+        }
+      } catch (e) {
+        if (debugLogs) {
+          debugPrint('Error retrieving memory context: $e');
+        }
+      }
+    }
+
     if (debugLogs) {
       debugPrint(
-        '### Request sent to ${api!.modelName} ###\n${messages.toString().safeSubstring(0, 500)}',
+        '### Request sent to ${currentApi.modelName} ###\n${messages.toString().safeSubstring(0, 500)}',
       );
+      if (enhancedSystemPrompt != systemPrompt) {
+        debugPrint('### Memory context added to system prompt ###');
+      }
     }
-    return currentApi.isGemini
-        ? GeminiService.promptModel(
+
+    final String response = currentApi.isGemini
+        ? await GeminiService.promptModel(
             apiKey: currentApi.apiKey,
             modelName: currentApi.modelName,
             content: await messages.toGeminiMessages(),
-            systemPrompt: systemPrompt,
+            systemPrompt: enhancedSystemPrompt,
             returnJson: returnJson,
             temperature: temperature,
           )
-        : OpenAIService.promptModel(
+        : await OpenAIService.promptModel(
             apiUrl: currentApi.url,
             apiKey: currentApi.apiKey,
             modelName: currentApi.modelName,
             messages: await messages.toOpenAiMessages(),
-            systemPrompt: systemPrompt,
+            systemPrompt: enhancedSystemPrompt,
             returnJson: returnJson,
             temperature: temperature,
           );
+
+    // Memory integration: extract memories from successful conversation
+    if (useMemory && await MemoryService.isMemoryEnabled() && !returnJson) {
+      try {
+        // Create a copy of messages with the response added
+        final List<Message> conversationMessages = List<Message>.from(messages);
+        conversationMessages
+            .add(Message(role: MessageRole.assistant, body: response));
+
+        // Extract memories in the background (don't await to avoid blocking)
+        MemoryExtractor.extractMemoriesFromConversation(
+          messages: conversationMessages,
+          conversationId: conversationId ?? const Uuid().v4(),
+          userContext: userContext ?? 'default_user',
+          api: currentApi,
+        ).catchError((dynamic e) {
+          if (debugLogs) {
+            debugPrint('Error extracting memories: $e');
+          }
+        });
+      } catch (e) {
+        if (debugLogs) {
+          debugPrint('Error in memory extraction setup: $e');
+        }
+      }
+    }
+
+    return response;
   }
 
   /// Sends a prompt to a language model and returns the response as a Stream(String)
@@ -138,6 +196,9 @@ class LLMRepository {
     bool debugLogs = false,
     bool useSmallApi = false,
     double? temperature,
+    bool useMemory = true,
+    String? conversationId,
+    String? userContext,
   }) async {
     final LlmApi? currentApi = api ??
         (useSmallApi
@@ -145,27 +206,53 @@ class LLMRepository {
             : await CacheService.getCurrentApi());
     if (currentApi == null) throw Exception('No API selected');
     await _waitBetweenRequests(currentApi);
+
+    // Memory integration: enhance system prompt with memory context
+    String? enhancedSystemPrompt = systemPrompt;
+    if (useMemory && await MemoryService.isMemoryEnabled()) {
+      try {
+        final String memoryContext = await MemoryService.getMemoryContext(
+          userContext: userContext ?? 'default_user',
+          conversationId: conversationId,
+        );
+
+        if (memoryContext.isNotEmpty) {
+          enhancedSystemPrompt = systemPrompt != null
+              ? '$systemPrompt\n\nRELEVANT MEMORY CONTEXT:\n$memoryContext'
+              : 'RELEVANT MEMORY CONTEXT:\n$memoryContext';
+        }
+      } catch (e) {
+        if (debugLogs) {
+          debugPrint('Error retrieving memory context: $e');
+        }
+      }
+    }
+
     if (debugLogs) {
       debugPrint(
-        '### Request sent to ${api!.modelName} ###\n${messages.toString().safeSubstring(0, 500)}',
+        '### Request sent to ${currentApi.modelName} ###\n${messages.toString().safeSubstring(0, 500)}',
       );
+      if (enhancedSystemPrompt != systemPrompt) {
+        debugPrint('### Memory context added to system prompt ###');
+      }
     }
+
     if (currentApi.isGemini) {
       return GeminiService.promptModelStream(
         apiKey: currentApi.apiKey,
         modelName: currentApi.modelName,
         content: await messages.toGeminiMessages(),
-        systemPrompt: systemPrompt,
+        systemPrompt: enhancedSystemPrompt,
         returnJson: returnJson,
         temperature: temperature,
       );
     } else {
       final List<Map<String, dynamic>> openAiMessages =
           await messages.toOpenAiMessages();
-      if (systemPrompt != null) {
+      if (enhancedSystemPrompt != null) {
         openAiMessages.insert(
           0,
-          <String, dynamic>{'role': 'system', 'content': systemPrompt},
+          <String, dynamic>{'role': 'system', 'content': enhancedSystemPrompt},
         );
       }
       return OpenAIService.promptModelStream(

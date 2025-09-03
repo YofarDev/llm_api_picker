@@ -8,6 +8,9 @@ class CacheService {
   static const String _savedList = 'llms_apis_saved';
   static const String _currentApi = 'current_api';
   static const String _currentSmallApi = 'current_small_api';
+  static const String _memoryEnabled = 'memory_enabled';
+  static const String _memoryAutoCleanup = 'memory_auto_cleanup';
+  static const String _memoryCleanupDays = 'memory_cleanup_days';
 
   static Future<List<LlmApi>> getSavedLlmApis() async {
     final List<String> savedList = await _getSavedList();
@@ -70,7 +73,8 @@ class CacheService {
 
   static Future<void> setLastRequestTime(String modelName) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('last_request_time_$modelName', DateTime.now().millisecondsSinceEpoch);
+    await prefs.setInt(
+        'last_request_time_$modelName', DateTime.now().millisecondsSinceEpoch);
   }
 
   static Future<DateTime?> getLastRequestTime(String modelName) async {
@@ -97,4 +101,63 @@ class CacheService {
     }
   }
 
+  // Memory-related preferences
+
+  /// Set memory enabled state
+  static Future<void> setMemoryEnabled(bool enabled) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_memoryEnabled, enabled);
+  }
+
+  /// Get memory enabled state
+  static Future<bool> isMemoryEnabled() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_memoryEnabled) ?? false; // Default to disabled
+  }
+
+  /// Set memory auto cleanup enabled state
+  static Future<void> setMemoryAutoCleanup(bool enabled) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_memoryAutoCleanup, enabled);
+  }
+
+  /// Get memory auto cleanup enabled state
+  static Future<bool> isMemoryAutoCleanupEnabled() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_memoryAutoCleanup) ?? true; // Default to enabled
+  }
+
+  /// Set memory cleanup days (how old memories should be before cleanup)
+  static Future<void> setMemoryCleanupDays(int days) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_memoryCleanupDays, days);
+  }
+
+  /// Get memory cleanup days
+  static Future<int> getMemoryCleanupDays() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_memoryCleanupDays) ?? 90; // Default to 90 days
+  }
+
+  /// Get all memory settings as a map
+  static Future<Map<String, dynamic>> getMemorySettings() async {
+    return <String, dynamic>{
+      'enabled': await isMemoryEnabled(),
+      'auto_cleanup': await isMemoryAutoCleanupEnabled(),
+      'cleanup_days': await getMemoryCleanupDays(),
+    };
+  }
+
+  /// Set multiple memory settings at once
+  static Future<void> setMemorySettings(Map<String, dynamic> settings) async {
+    if (settings.containsKey('enabled')) {
+      await setMemoryEnabled(settings['enabled'] as bool);
+    }
+    if (settings.containsKey('auto_cleanup')) {
+      await setMemoryAutoCleanup(settings['auto_cleanup'] as bool);
+    }
+    if (settings.containsKey('cleanup_days')) {
+      await setMemoryCleanupDays(settings['cleanup_days'] as int);
+    }
+  }
 }

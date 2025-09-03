@@ -17,6 +17,7 @@ dependencies:
   uuid: ^4.5.1
   html: ^0.15.5
   mime: ^2.0.0
+  sqflite: ^2.3.0
 
 dev_dependencies:
   flutter_test:
@@ -26,4 +27,8 @@ dev_dependencies:
 flutter:
   assets:
     - lib/assets/functions_calling_prompt.txt
+    - lib/assets/functions_calling_prompt_multi.txt
+    - lib/assets/memory_semantic_extraction_prompt.txt
+    - lib/assets/memory_episodic_extraction_prompt.txt
+    - lib/assets/memory_procedural_extraction_prompt.txt
 

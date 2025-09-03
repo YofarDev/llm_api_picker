@@ -1,8 +1,15 @@
+export 'src/models/episodic_memory.dart';
 export 'src/models/function_info.dart';
 export 'src/models/llm_api.dart';
+export 'src/models/memory_base.dart';
 export 'src/models/message.dart';
+export 'src/models/procedural_memory.dart';
+export 'src/models/semantic_memory.dart';
 export 'src/repositories/llm_repository.dart';
 export 'src/services/cache_service.dart';
 export 'src/services/gemini_service.dart';
+export 'src/services/memory_database.dart';
+export 'src/services/memory_extractor.dart';
+export 'src/services/memory_service.dart';
 export 'src/services/openai_service.dart';
 export 'src/view/llm_api_picker_settings_page.dart';
