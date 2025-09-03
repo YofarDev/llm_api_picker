@@ -8,9 +8,11 @@ This Flutter package allows you to easily select and manage your Large Language 
 
 ## Features
 
-* **Multiple API Support:**  Easily switch between different LLM APIs with the OpenAI structure.
+* **Unified OpenAI Structure:**  All LLM providers use the standardized OpenAI API format for consistency and simplicity.
+* **Multiple Provider Support:**  Works with OpenAI, Gemini (via OpenAI-compatible endpoints), and any OpenAI-compatible API.
 * **Long-term Memory System:**  Optional memory system that learns from conversations to provide personalized, context-aware responses.
 * **Simple Integration:**  Integrate seamlessly into your Flutter application.
+* **No Provider-Specific Dependencies:**  Lightweight implementation using only HTTP requests.
 
 ## Memory System
 
@@ -56,7 +58,7 @@ Enable memory in your app's settings page using the built-in `LlmApiPickerSettin
 
 ```yaml
 dependencies:
-  llm_api_picker: ^1.0.0
+  llm_api_picker: ^2.0.2
 ```
 
 2. Import the package:
@@ -64,6 +66,96 @@ dependencies:
 ```dart
 import 'package:llm_api_picker/llm_api_picker.dart';
 ```
+
+3. Configure your LLM APIs:
+
+```dart
+// OpenAI API
+final openaiApi = LlmApi(
+  id: 'openai-gpt4',
+  url: 'https://api.openai.com/v1/chat/completions',
+  apiKey: 'your-openai-api-key',
+  modelName: 'gpt-4',
+);
+
+// Gemini via OpenAI-compatible endpoint
+final geminiApi = LlmApi(
+  id: 'gemini-pro',
+  url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+  apiKey: 'your-gemini-api-key',
+  modelName: 'gemini-1.5-pro',
+);
+
+// Any other OpenAI-compatible API
+final customApi = LlmApi(
+  id: 'custom-api',
+  url: 'https://your-custom-api.com/v1/chat/completions',
+  apiKey: 'your-api-key',
+  modelName: 'your-model-name',
+);
+
+// Save and set as current
+await LLMRepository.saveLlmApi(geminiApi);
+await LLMRepository.setCurrentApi(geminiApi);
+```
+
+4. Use the unified interface:
+
+```dart
+// Create messages
+final messages = [
+  Message(role: MessageRole.user, body: "Hello, how are you?"),
+];
+
+// Get response (works with any configured provider)
+final response = await LLMRepository.promptModel(
+  messages: messages,
+  systemPrompt: "You are a helpful assistant",
+);
+
+// Stream response
+final stream = await LLMRepository.promptModelStream(
+  messages: messages,
+  systemPrompt: "You are a helpful assistant",
+);
+
+await for (final chunk in stream) {
+  print(chunk);
+}
+```
+
+## Supported Providers
+
+### OpenAI
+- **URL:** `https://api.openai.com/v1/chat/completions`
+- **Models:** `gpt-4`, `gpt-4-turbo`, `gpt-3.5-turbo`, etc.
+- **API Key:** Your OpenAI API key
+
+### Google Gemini (via OpenAI-compatible endpoint)
+- **URL:** `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`
+- **Models:** `gemini-1.5-pro`, `gemini-1.5-flash`, `gemini-1.0-pro`, etc.
+- **API Key:** Your Google AI Studio API key
+
+### Other OpenAI-Compatible APIs
+Any service that implements the OpenAI chat completions API format, including:
+- Azure OpenAI Service
+- Anthropic Claude (via proxy)
+- Local LLM servers (Ollama, LM Studio, etc.)
+- Custom API implementations
+
+## Migration from v1.x
+
+If you're upgrading from v1.x, the main changes are:
+
+1. **Removed `google_generative_ai` dependency** - Now uses HTTP requests for all providers
+2. **Simplified API configuration** - No more `isGemini` flag needed
+3. **Unified message format** - All providers use OpenAI message structure
+4. **Gemini integration** - Now uses Gemini's OpenAI-compatible endpoints
+
+To migrate:
+1. Update your Gemini API configurations to use the OpenAI-compatible URL
+2. Remove any `isGemini: true` flags from your `LlmApi` configurations
+3. All existing functionality remains the same
 
 
 ## License

@@ -5,7 +5,6 @@ class LlmApi {
   String url;
   String apiKey;
   String modelName;
-  bool isGemini;
   int millisecondsDelayBetweenRequests;
 
   LlmApi({
@@ -13,7 +12,6 @@ class LlmApi {
     required this.url,
     required this.apiKey,
     required this.modelName,
-    this.isGemini = false,
     this.millisecondsDelayBetweenRequests = 0,
   });
 
@@ -23,7 +21,6 @@ class LlmApi {
       'url': url,
       'apiKey': apiKey,
       'modelName': modelName,
-      'isGemini': isGemini.toString(),
       'millisecondsDelayBetweenRequests':
           millisecondsDelayBetweenRequests.toString(),
     };
@@ -35,7 +32,6 @@ class LlmApi {
       url: map['url'] as String? ?? '',
       apiKey: map['apiKey'] as String? ?? '',
       modelName: map['modelName'] as String? ?? '',
-      isGemini: (map['isGemini'] as String? ?? '') == 'true',
       millisecondsDelayBetweenRequests: int.tryParse(
         map['millisecondsDelayBetweenRequests'] as String? ?? '0',
       )!,
@@ -44,7 +40,7 @@ class LlmApi {
 
   @override
   String toString() {
-    return 'LlmApi(id: $id, url: $url,  apiKey: $apiKey, modelName: $modelName, isGemini: $isGemini, millisecondsDelayBetweenRequests: $millisecondsDelayBetweenRequests)';
+    return 'LlmApi(id: $id, url: $url,  apiKey: $apiKey, modelName: $modelName, millisecondsDelayBetweenRequests: $millisecondsDelayBetweenRequests)';
   }
 
   LlmApi copyWith({
@@ -52,7 +48,6 @@ class LlmApi {
     String? url,
     String? apiKey,
     String? modelName,
-    bool? isGemini,
     int? millisecondsDelayBetweenRequests,
   }) {
     return LlmApi(
@@ -60,7 +55,6 @@ class LlmApi {
       url: url ?? this.url,
       apiKey: apiKey ?? this.apiKey,
       modelName: modelName ?? this.modelName,
-      isGemini: isGemini ?? this.isGemini,
       millisecondsDelayBetweenRequests: millisecondsDelayBetweenRequests ??
           this.millisecondsDelayBetweenRequests,
     );

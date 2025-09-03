@@ -1,10 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:mime/mime.dart';
 
-import '../utils/utils.dart';
 
 enum MessageRole { user, assistant }
 
@@ -24,30 +22,6 @@ class Message {
 }
 
 extension LlmMessageExt on List<Message> {
-  Future<List<Content>> toGeminiMessages() async {
-    final List<Content> content = <Content>[];
-    for (final Message message in this) {
-      if (message.role == MessageRole.user) {
-        content.add(
-          Content.text(
-            '${message.body}${(message.attachedFile != null && message != last) ? '\n${message.attachedFile}' : ''}',
-          ),
-        );
-        if (message.attachedFile != null && message == last) {
-          content.add(
-            Content.data(
-              Utils.getMimeType(message.attachedFile!),
-              await Utils.getBytesFromFile(message.attachedFile!),
-            ),
-          );
-        }
-      } else {
-        content.add(Content.model(<Part>[TextPart(message.body)]));
-      }
-    }
-    return content;
-  }
-
   Future<List<Map<String, dynamic>>> toOpenAiMessages() async {
     final List<Map<String, dynamic>> messages = <Map<String, dynamic>>[];
     for (final Message message in this) {

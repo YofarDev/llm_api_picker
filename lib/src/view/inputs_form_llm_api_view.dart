@@ -26,7 +26,6 @@ class _InputsFormLlmApiViewState extends State<InputsFormLlmApiView> {
   late final TextEditingController delayController = TextEditingController(
     text: _api.millisecondsDelayBetweenRequests.toString(),
   );
-  late bool _isGemini = _api.isGemini;
 
   @override
   void initState() {
@@ -48,31 +47,9 @@ class _InputsFormLlmApiViewState extends State<InputsFormLlmApiView> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            StatefulBuilder(
-                          builder: (BuildContext context, StateSetter setState) {
-                return Column(
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Checkbox(
-                          value: _isGemini,
-                          onChanged: (bool? value) {
-                            setState(() {
-                              _isGemini = !_isGemini;
-                            });
-                          },
-                        ),
-                        const Text('is Gemini'),
-                      ],
-                    ),
-                    if (!_isGemini)
-                      TextField(
-                        controller: urlController,
-                        decoration: const InputDecoration(labelText: 'URL'),
-                      ),
-                  ],
-                );
-              },
+            TextField(
+              controller: urlController,
+              decoration: const InputDecoration(labelText: 'URL'),
             ),
             TextField(
               controller: apiKeyController,
@@ -100,7 +77,7 @@ class _InputsFormLlmApiViewState extends State<InputsFormLlmApiView> {
         TextButton(
           child: const Text('Save'),
           onPressed: () {
-            if ((!_isGemini && urlController.text.isEmpty) ||
+            if (urlController.text.isEmpty ||
                 apiKeyController.text.isEmpty ||
                 modelNameController.text.isEmpty) {
               showDialog(
@@ -125,7 +102,6 @@ class _InputsFormLlmApiViewState extends State<InputsFormLlmApiView> {
               url: urlController.text,
               apiKey: apiKeyController.text,
               modelName: modelNameController.text,
-              isGemini: _isGemini,
               millisecondsDelayBetweenRequests: int.tryParse(
                 delayController.text,
               ) ?? 0,

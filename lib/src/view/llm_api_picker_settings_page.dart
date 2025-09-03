@@ -174,9 +174,12 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
     }
 
     try {
-      final semanticMemories = await MemoryDatabase.getAllSemanticMemories();
-      final episodicMemories = await MemoryDatabase.getAllEpisodicMemories();
-      final proceduralMemories = await MemoryDatabase.getAllProceduralMemories();
+      final List<SemanticMemory> semanticMemories =
+          await MemoryDatabase.getAllSemanticMemories();
+      final List<EpisodicMemory> episodicMemories =
+          await MemoryDatabase.getAllEpisodicMemories();
+      final List<ProceduralMemory> proceduralMemories =
+          await MemoryDatabase.getAllProceduralMemories();
 
       if (mounted) {
         await showDialog(
@@ -528,11 +531,11 @@ class _MemoryViewerDialogState extends State<_MemoryViewerDialog>
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      child: Container(
+      child: SizedBox(
         width: MediaQuery.of(context).size.width * 0.9,
         height: MediaQuery.of(context).size.height * 0.8,
         child: Column(
-          children: [
+          children: <Widget>[
             // Header
             Container(
               padding: const EdgeInsets.all(16.0),
@@ -545,12 +548,12 @@ class _MemoryViewerDialogState extends State<_MemoryViewerDialog>
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
+                children: <Widget>[
                   Text(
                     'Memory Viewer',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: Colors.white,
-                    ),
+                          color: Colors.white,
+                        ),
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
@@ -559,22 +562,22 @@ class _MemoryViewerDialogState extends State<_MemoryViewerDialog>
                 ],
               ),
             ),
-            
+
             // Tab Bar
             TabBar(
               controller: _tabController,
-              tabs: [
+              tabs: <Widget>[
                 Tab(text: 'Semantic (${widget.semanticMemories.length})'),
                 Tab(text: 'Episodic (${widget.episodicMemories.length})'),
                 Tab(text: 'Procedural (${widget.proceduralMemories.length})'),
               ],
             ),
-            
+
             // Tab Views
             Expanded(
               child: TabBarView(
                 controller: _tabController,
-                children: [
+                children: <Widget>[
                   _buildSemanticMemoriesView(),
                   _buildEpisodicMemoriesView(),
                   _buildProceduralMemoriesView(),
@@ -595,25 +598,28 @@ class _MemoryViewerDialogState extends State<_MemoryViewerDialog>
     return ListView.builder(
       padding: const EdgeInsets.all(16.0),
       itemCount: widget.semanticMemories.length,
-      itemBuilder: (context, index) {
-        final memory = widget.semanticMemories[index];
+      itemBuilder: (BuildContext context, int index) {
+        final SemanticMemory memory = widget.semanticMemories[index];
         return Card(
           margin: const EdgeInsets.only(bottom: 8.0),
           child: ExpansionTile(
             title: Text('User Context: ${memory.userContext}'),
-            subtitle: Text('Version: ${memory.version} | Updated: ${_formatDate(memory.updatedAt)}'),
-            children: [
+            subtitle: Text(
+                'Version: ${memory.version} | Updated: ${_formatDate(memory.updatedAt)}'),
+            children: <Widget>[
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+                  children: <Widget>[
                     if (memory.profileData.containsKey('preferences'))
-                      _buildDataSection('Preferences', memory.profileData['preferences']),
+                      _buildDataSection(
+                          'Preferences', memory.profileData['preferences']),
                     if (memory.profileData.containsKey('facts'))
                       _buildDataSection('Facts', memory.profileData['facts']),
                     if (memory.profileData.containsKey('knowledge'))
-                      _buildDataSection('Knowledge', memory.profileData['knowledge']),
+                      _buildDataSection(
+                          'Knowledge', memory.profileData['knowledge']),
                   ],
                 ),
               ),
@@ -632,30 +638,36 @@ class _MemoryViewerDialogState extends State<_MemoryViewerDialog>
     return ListView.builder(
       padding: const EdgeInsets.all(16.0),
       itemCount: widget.episodicMemories.length,
-      itemBuilder: (context, index) {
-        final memory = widget.episodicMemories[index];
+      itemBuilder: (BuildContext context, int index) {
+        final EpisodicMemory memory = widget.episodicMemories[index];
         return Card(
           margin: const EdgeInsets.only(bottom: 8.0),
           child: ExpansionTile(
             title: Text(memory.summary),
-            subtitle: Text('Relevance: ${(memory.relevanceScore * 100).toStringAsFixed(1)}% | ${_formatDate(memory.createdAt)}'),
-            children: [
+            subtitle: Text(
+                'Relevance: ${(memory.relevanceScore * 100).toStringAsFixed(1)}% | ${_formatDate(memory.createdAt)}'),
+            children: <Widget>[
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Context:', style: Theme.of(context).textTheme.titleSmall),
+                  children: <Widget>[
+                    Text('Context:',
+                        style: Theme.of(context).textTheme.titleSmall),
                     Text(memory.context),
                     const SizedBox(height: 8),
-                    if (memory.tags.isNotEmpty) ...[
-                      Text('Tags:', style: Theme.of(context).textTheme.titleSmall),
+                    if (memory.tags.isNotEmpty) ...<Widget>[
+                      Text('Tags:',
+                          style: Theme.of(context).textTheme.titleSmall),
                       Wrap(
                         spacing: 4.0,
-                        children: memory.tags.map((tag) => Chip(
-                          label: Text(tag),
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        )).toList(),
+                        children: memory.tags
+                            .map((String tag) => Chip(
+                                  label: Text(tag),
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ))
+                            .toList(),
                       ),
                     ],
                   ],
@@ -676,25 +688,28 @@ class _MemoryViewerDialogState extends State<_MemoryViewerDialog>
     return ListView.builder(
       padding: const EdgeInsets.all(16.0),
       itemCount: widget.proceduralMemories.length,
-      itemBuilder: (context, index) {
-        final memory = widget.proceduralMemories[index];
+      itemBuilder: (BuildContext context, int index) {
+        final ProceduralMemory memory = widget.proceduralMemories[index];
         return Card(
           margin: const EdgeInsets.only(bottom: 8.0),
           child: ExpansionTile(
             title: Text('${memory.patternType} Pattern'),
-            subtitle: Text('Success: ${(memory.successRate * 100).toStringAsFixed(1)}% | Used: ${memory.usageCount} times'),
-            children: [
+            subtitle: Text(
+                'Success: ${(memory.successRate * 100).toStringAsFixed(1)}% | Used: ${memory.usageCount} times'),
+            children: <Widget>[
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (memory.description != null) ...[
-                      Text('Description:', style: Theme.of(context).textTheme.titleSmall),
+                  children: <Widget>[
+                    if (memory.description != null) ...<Widget>[
+                      Text('Description:',
+                          style: Theme.of(context).textTheme.titleSmall),
                       Text(memory.description!),
                       const SizedBox(height: 8),
                     ],
-                    Text('Rule Data:', style: Theme.of(context).textTheme.titleSmall),
+                    Text('Rule Data:',
+                        style: Theme.of(context).textTheme.titleSmall),
                     _buildDataSection('', memory.ruleData),
                     const SizedBox(height: 8),
                     Text('Last Used: ${_formatDate(memory.lastUsed)}'),
@@ -710,11 +725,11 @@ class _MemoryViewerDialogState extends State<_MemoryViewerDialog>
 
   Widget _buildDataSection(String title, dynamic data) {
     if (data == null) return const SizedBox.shrink();
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (title.isNotEmpty) ...[
+      children: <Widget>[
+        if (title.isNotEmpty) ...<Widget>[
           Text(title, style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 4),
         ],
@@ -736,8 +751,8 @@ class _MemoryViewerDialogState extends State<_MemoryViewerDialog>
   }
 
   String _formatMap(Map<dynamic, dynamic> map) {
-    final buffer = StringBuffer();
-    map.forEach((key, value) {
+    final StringBuffer buffer = StringBuffer();
+    map.forEach((dynamic key,dynamic value) {
       buffer.writeln('$key: $value');
     });
     return buffer.toString().trim();

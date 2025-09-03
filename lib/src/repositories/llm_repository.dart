@@ -125,24 +125,15 @@ class LLMRepository {
       }
     }
 
-    final String response = currentApi.isGemini
-        ? await GeminiService.promptModel(
-            apiKey: currentApi.apiKey,
-            modelName: currentApi.modelName,
-            content: await messages.toGeminiMessages(),
-            systemPrompt: enhancedSystemPrompt,
-            returnJson: returnJson,
-            temperature: temperature,
-          )
-        : await OpenAIService.promptModel(
-            apiUrl: currentApi.url,
-            apiKey: currentApi.apiKey,
-            modelName: currentApi.modelName,
-            messages: await messages.toOpenAiMessages(),
-            systemPrompt: enhancedSystemPrompt,
-            returnJson: returnJson,
-            temperature: temperature,
-          );
+    final String response = await OpenAIService.promptModel(
+      apiUrl: currentApi.url,
+      apiKey: currentApi.apiKey,
+      modelName: currentApi.modelName,
+      messages: await messages.toOpenAiMessages(),
+      systemPrompt: enhancedSystemPrompt,
+      returnJson: returnJson,
+      temperature: temperature,
+    );
 
     // Memory integration: extract memories from successful conversation
     if (useMemory && await MemoryService.isMemoryEnabled() && !returnJson) {
@@ -237,34 +228,23 @@ class LLMRepository {
       }
     }
 
-    if (currentApi.isGemini) {
-      return GeminiService.promptModelStream(
-        apiKey: currentApi.apiKey,
-        modelName: currentApi.modelName,
-        content: await messages.toGeminiMessages(),
-        systemPrompt: enhancedSystemPrompt,
-        returnJson: returnJson,
-        temperature: temperature,
-      );
-    } else {
-      final List<Map<String, dynamic>> openAiMessages =
-          await messages.toOpenAiMessages();
-      if (enhancedSystemPrompt != null) {
-        openAiMessages.insert(
-          0,
-          <String, dynamic>{'role': 'system', 'content': enhancedSystemPrompt},
-        );
-      }
-      return OpenAIService.promptModelStream(
-        apiUrl: currentApi.url,
-        apiKey: currentApi.apiKey,
-        modelName: currentApi.modelName,
-        messages: openAiMessages,
-        returnJson: returnJson,
-        debugLogs: debugLogs,
-        temperature: temperature,
+    final List<Map<String, dynamic>> openAiMessages =
+        await messages.toOpenAiMessages();
+    if (enhancedSystemPrompt != null) {
+      openAiMessages.insert(
+        0,
+        <String, dynamic>{'role': 'system', 'content': enhancedSystemPrompt},
       );
     }
+    return OpenAIService.promptModelStream(
+      apiUrl: currentApi.url,
+      apiKey: currentApi.apiKey,
+      modelName: currentApi.modelName,
+      messages: openAiMessages,
+      returnJson: returnJson,
+      debugLogs: debugLogs,
+      temperature: temperature,
+    );
   }
 
   /// This function takes a user's message and a list of functions to call,
@@ -306,24 +286,15 @@ class LLMRepository {
     final String prompt =
         'Analyze the following user message and determine if a function call is needed:\n"""$lastUserMessage"""\nYou can use previous messages for context if needed. Respond in JSON format with functions to call, and {"function": null} if none are needed.';
     await _waitBetweenRequests(currentApi);
-    final String response = await (currentApi.isGemini
-        ? GeminiService.checkFunctionsCalling(
-            systemPrompt: systemPrompt,
-            modelName: currentApi.modelName,
-            apiKey: currentApi.apiKey,
-            content: await messages.toGeminiMessages(),
-            prompt: prompt,
-            temperature: temperature,
-          )
-        : OpenAIService.checkFunctionsCalling(
-            systemPrompt: systemPrompt,
-            apiUrl: currentApi.url,
-            apiKey: currentApi.apiKey,
-            modelName: currentApi.modelName,
-            messages: await messages.toOpenAiMessages(),
-            prompt: prompt,
-            temperature: temperature,
-          ));
+    final String response = await OpenAIService.checkFunctionsCalling(
+      systemPrompt: systemPrompt,
+      apiUrl: currentApi.url,
+      apiKey: currentApi.apiKey,
+      modelName: currentApi.modelName,
+      messages: await messages.toOpenAiMessages(),
+      prompt: prompt,
+      temperature: temperature,
+    );
     final List<FunctionInfo> functionsCalled =
         _parseResponseToFunctions(response, functions);
     return (response, functionsCalled);
@@ -387,24 +358,15 @@ class LLMRepository {
       prompt += '\nFunctions to call: ${functions.toPromptString()}';
     }
     await _waitBetweenRequests(currentApi);
-    final String response = await (currentApi.isGemini
-        ? GeminiService.checkFunctionsCalling(
-            systemPrompt: systemPrompt,
-            modelName: currentApi.modelName,
-            apiKey: currentApi.apiKey,
-            content: await messages.toGeminiMessages(),
-            prompt: prompt,
-            temperature: temperature,
-          )
-        : OpenAIService.checkFunctionsCalling(
-            systemPrompt: systemPrompt,
-            apiUrl: currentApi.url,
-            apiKey: currentApi.apiKey,
-            modelName: currentApi.modelName,
-            messages: await messages.toOpenAiMessages(),
-            prompt: prompt,
-            temperature: temperature,
-          ));
+    final String response = await OpenAIService.checkFunctionsCalling(
+      systemPrompt: systemPrompt,
+      apiUrl: currentApi.url,
+      apiKey: currentApi.apiKey,
+      modelName: currentApi.modelName,
+      messages: await messages.toOpenAiMessages(),
+      prompt: prompt,
+      temperature: temperature,
+    );
     final List<FunctionInfo> functionsCalled =
         _parseResponseToFunctions(response, functions);
     return (response, functionsCalled);

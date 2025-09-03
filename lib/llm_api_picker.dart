@@ -7,7 +7,6 @@ export 'src/models/procedural_memory.dart';
 export 'src/models/semantic_memory.dart';
 export 'src/repositories/llm_repository.dart';
 export 'src/services/cache_service.dart';
-export 'src/services/gemini_service.dart';
 export 'src/services/memory_database.dart';
 export 'src/services/memory_extractor.dart';
 export 'src/services/memory_service.dart';
