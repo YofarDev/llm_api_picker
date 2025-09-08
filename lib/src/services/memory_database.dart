@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/episodic_memory.dart';
 import '../models/procedural_memory.dart';
 import '../models/semantic_memory.dart';
+import '../models/simple_conversation_memory.dart';
+import '../models/simple_user_memory.dart';
 
 /// Database helper class for managing the memory SQLite database
 class MemoryDatabase {
@@ -18,6 +21,10 @@ class MemoryDatabase {
   static const String _episodicMemoryTable = 'episodic_memory';
   static const String _proceduralMemoryTable = 'procedural_memory';
   static const String _memorySettingsTable = 'memory_settings';
+  
+  // Simple memory table names
+  static const String _simpleUserMemoryTable = 'simple_user_memory';
+  static const String _simpleConversationMemoryTable = 'simple_conversation_memory';
 
   static Database? _database;
 
@@ -92,6 +99,23 @@ class MemoryDatabase {
       )
     ''');
 
+    // Create simple memory tables
+    await db.execute('''
+      CREATE TABLE $_simpleUserMemoryTable (
+        user_context TEXT PRIMARY KEY,
+        facts TEXT NOT NULL DEFAULT '{}',
+        updated_at INTEGER NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE $_simpleConversationMemoryTable (
+        conversation_id TEXT PRIMARY KEY,
+        topics TEXT NOT NULL DEFAULT '[]',
+        created_at INTEGER NOT NULL
+      )
+    ''');
+
     // Create indexes for better query performance
     await db.execute(
         'CREATE INDEX idx_semantic_user_context ON $_semanticMemoryTable(user_context)');
@@ -107,6 +131,10 @@ class MemoryDatabase {
         'CREATE INDEX idx_procedural_success_rate ON $_proceduralMemoryTable(success_rate DESC)');
     await db.execute(
         'CREATE INDEX idx_procedural_last_used ON $_proceduralMemoryTable(last_used DESC)');
+    
+    // Create indexes for simple memory tables
+    await db.execute(
+        'CREATE INDEX idx_simple_conversation_created_at ON $_simpleConversationMemoryTable(created_at DESC)');
   }
 
   /// Handle database upgrades
@@ -115,7 +143,51 @@ class MemoryDatabase {
     // Handle future database schema upgrades here
     if (oldVersion < newVersion) {
       // Add migration logic for future versions
+      await _migrateToSimpleMemory(db);
     }
+  }
+
+  /// Migrate existing database to include simple memory tables
+  static Future<void> _migrateToSimpleMemory(Database db) async {
+    try {
+      // Check if simple memory tables already exist
+      final List<Map<String, dynamic>> tables = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('simple_user_memory', 'simple_conversation_memory')"
+      );
+      
+      if (tables.length < 2) {
+        // Create simple memory tables if they don't exist
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS $_simpleUserMemoryTable (
+            user_context TEXT PRIMARY KEY,
+            facts TEXT NOT NULL DEFAULT '{}',
+            updated_at INTEGER NOT NULL
+          )
+        ''');
+
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS $_simpleConversationMemoryTable (
+            conversation_id TEXT PRIMARY KEY,
+            topics TEXT NOT NULL DEFAULT '[]',
+            created_at INTEGER NOT NULL
+          )
+        ''');
+
+        // Create indexes for simple memory tables
+        await db.execute(
+            'CREATE INDEX IF NOT EXISTS idx_simple_conversation_created_at ON $_simpleConversationMemoryTable(created_at DESC)');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('MemoryDatabase: Error migrating to simple memory: $e');
+      }
+    }
+  }
+
+  /// Ensure simple memory tables exist (for existing databases)
+  static Future<void> ensureSimpleMemoryTables() async {
+    final Database db = await database;
+    await _migrateToSimpleMemory(db);
   }
 
   /// Close the database
@@ -430,5 +502,113 @@ class MemoryDatabase {
   static Future<void> vacuum() async {
     final Database db = await database;
     await db.execute('VACUUM');
+  }
+
+  // Simple Memory Operations
+
+  /// Insert or update simple user memory
+  static Future<void> insertSimpleUserMemory(SimpleUserMemory memory) async {
+    final Database db = await database;
+    await db.insert(
+      _simpleUserMemoryTable,
+      memory.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Get simple user memory by user context
+  static Future<Map<String, dynamic>?> getSimpleUserMemory(String userContext) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      _simpleUserMemoryTable,
+      where: 'user_context = ?',
+      whereArgs: <Object?>[userContext],
+      limit: 1,
+    );
+
+    if (maps.isNotEmpty) {
+      return maps.first;
+    }
+    return null;
+  }
+
+  /// Insert or update simple conversation memory
+  static Future<void> insertSimpleConversationMemory(SimpleConversationMemory memory) async {
+    final Database db = await database;
+    await db.insert(
+      _simpleConversationMemoryTable,
+      memory.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Get simple conversation memory by conversation ID
+  static Future<Map<String, dynamic>?> getSimpleConversationMemory(String conversationId) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      _simpleConversationMemoryTable,
+      where: 'conversation_id = ?',
+      whereArgs: <Object?>[conversationId],
+      limit: 1,
+    );
+
+    if (maps.isNotEmpty) {
+      return maps.first;
+    }
+    return null;
+  }
+
+  /// Get recent simple conversation memories
+  static Future<List<SimpleConversationMemory>> getRecentSimpleConversationMemories({int limit = 5}) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      _simpleConversationMemoryTable,
+      orderBy: 'created_at DESC',
+      limit: limit,
+    );
+    return maps
+        .map((Map<String, dynamic> map) => SimpleConversationMemory.fromMap(map))
+        .toList();
+  }
+
+  /// Delete old simple conversation memories (older than specified days)
+  static Future<int> deleteOldSimpleConversationMemories({int olderThanDays = 90}) async {
+    final Database db = await database;
+    final int cutoffTime =
+        DateTime.now().subtract(Duration(days: olderThanDays)).millisecondsSinceEpoch;
+
+    return await db.delete(
+      _simpleConversationMemoryTable,
+      where: 'created_at < ?',
+      whereArgs: <Object?>[cutoffTime],
+    );
+  }
+
+  /// Clear all simple memory data
+  static Future<void> clearAllSimpleMemories() async {
+    final Database db = await database;
+    await db.delete(_simpleUserMemoryTable);
+    await db.delete(_simpleConversationMemoryTable);
+  }
+
+  /// Get simple memory statistics
+  static Future<Map<String, int>> getSimpleMemoryStatistics() async {
+    final Database db = await database;
+
+    final int userMemoryCount = Sqflite.firstIntValue(
+          await db.rawQuery('SELECT COUNT(*) FROM $_simpleUserMemoryTable'),
+        ) ??
+        0;
+
+    final int conversationMemoryCount = Sqflite.firstIntValue(
+          await db.rawQuery('SELECT COUNT(*) FROM $_simpleConversationMemoryTable'),
+        ) ??
+        0;
+
+    return <String, int>{
+      'user_memories': userMemoryCount,
+      'conversation_memories': conversationMemoryCount,
+      'total': userMemoryCount + conversationMemoryCount,
+    };
   }
 }

@@ -3,6 +3,25 @@ import 'package:flutter/material.dart';
 import '../../llm_api_picker.dart';
 import 'inputs_form_llm_api_view.dart';
 
+/// Simple memory statistics for the simplified memory system
+class SimpleMemoryStats {
+  final int userMemories;
+  final int conversationMemories;
+  final int totalMemories;
+
+  const SimpleMemoryStats({
+    required this.userMemories,
+    required this.conversationMemories,
+    required this.totalMemories,
+  });
+
+  static const SimpleMemoryStats empty = SimpleMemoryStats(
+    userMemories: 0,
+    conversationMemories: 0,
+    totalMemories: 0,
+  );
+}
+
 class LlmApiPickerSettingsPage extends StatefulWidget {
   const LlmApiPickerSettingsPage({super.key});
 
@@ -18,7 +37,7 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
   bool _memoryEnabled = false;
   bool _memoryAutoCleanup = true;
   int _memoryCleanupDays = 90;
-  MemoryStats _memoryStats = MemoryStats.empty();
+  SimpleMemoryStats _memoryStats = SimpleMemoryStats.empty;
 
   @override
   void initState() {
@@ -73,7 +92,7 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
 
   Future<void> _initializeMemoryService() async {
     try {
-      await MemoryService.initialize();
+      await SimpleMemoryService.initialize();
     } catch (e) {
       // Handle initialization error silently
     }
@@ -95,9 +114,13 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
 
   Future<void> _loadMemoryStats() async {
     try {
-      final MemoryStats stats = await MemoryService.getMemoryStatistics();
+      final Map<String, int> stats = await MemoryDatabase.getSimpleMemoryStatistics();
       setState(() {
-        _memoryStats = stats;
+        _memoryStats = SimpleMemoryStats(
+          userMemories: stats['user_memories'] ?? 0,
+          conversationMemories: stats['conversation_memories'] ?? 0,
+          totalMemories: stats['total'] ?? 0,
+        );
       });
     } catch (e) {
       // Handle error silently, keep empty stats
@@ -148,11 +171,11 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
 
     if (confirmed) {
       try {
-        await MemoryService.clearAllMemories();
+        await MemoryDatabase.clearAllSimpleMemories();
         await _loadMemoryStats();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('All memories cleared successfully')),
+            const SnackBar(content: Text('All simple memories cleared successfully')),
           );
         }
       } catch (e) {
@@ -174,27 +197,34 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
     }
 
     try {
-      final List<SemanticMemory> semanticMemories =
-          await MemoryDatabase.getAllSemanticMemories();
-      final List<EpisodicMemory> episodicMemories =
-          await MemoryDatabase.getAllEpisodicMemories();
-      final List<ProceduralMemory> proceduralMemories =
-          await MemoryDatabase.getAllProceduralMemories();
+      // Get all user memories
+      final List<SimpleUserMemory> userMemories = [];
+      try {
+        final SimpleUserMemory defaultUserMemory = await SimpleMemoryService.getOrCreateUserMemory();
+        if (defaultUserMemory.facts.isNotEmpty) {
+          userMemories.add(defaultUserMemory);
+        }
+      } catch (e) {
+        // Handle case where no user memory exists
+      }
+
+      // Get recent conversation memories
+      final List<SimpleConversationMemory> conversationMemories =
+          await MemoryDatabase.getRecentSimpleConversationMemories(limit: 20);
 
       if (mounted) {
         await showDialog(
           context: context,
-          builder: (BuildContext context) => _MemoryViewerDialog(
-            semanticMemories: semanticMemories,
-            episodicMemories: episodicMemories,
-            proceduralMemories: proceduralMemories,
+          builder: (BuildContext context) => _SimpleMemoryViewerDialog(
+            userMemories: userMemories,
+            conversationMemories: conversationMemories,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading memories: $e')),
+          SnackBar(content: Text('Error loading simple memories: $e')),
         );
       }
     }
@@ -353,9 +383,9 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
 
           // Memory Enable/Disable Toggle
           SwitchListTile(
-            title: const Text('Enable Long-term Memory'),
+            title: const Text('Enable Simplified Memory'),
             subtitle: const Text(
-                'Allow the system to remember conversations and learn from interactions'),
+                'Store essential user facts and conversation topics'),
             value: _memoryEnabled,
             onChanged: _toggleMemory,
           ),
@@ -381,11 +411,9 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
                         _buildStatItem(
                             'Total', _memoryStats.totalMemories.toString()),
                         _buildStatItem(
-                            'Semantic', _memoryStats.semanticCount.toString()),
+                            'User Facts', _memoryStats.userMemories.toString()),
                         _buildStatItem(
-                            'Episodic', _memoryStats.episodicCount.toString()),
-                        _buildStatItem('Procedural',
-                            _memoryStats.proceduralCount.toString()),
+                            'Conversations', _memoryStats.conversationMemories.toString()),
                       ],
                     ),
                   ],
@@ -436,7 +464,11 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
                 ElevatedButton.icon(
                   onPressed: _viewMemories,
                   icon: const Icon(Icons.visibility),
-                  label: const Text('View Memories'),
+                  label: const Text('View Simple Memories'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
                 ),
                 ElevatedButton.icon(
                   onPressed: _clearAllMemories,
@@ -497,29 +529,27 @@ class _LlmApiPickerSettingsPageState extends State<LlmApiPickerSettingsPage> {
   }
 }
 
-class _MemoryViewerDialog extends StatefulWidget {
-  final List<SemanticMemory> semanticMemories;
-  final List<EpisodicMemory> episodicMemories;
-  final List<ProceduralMemory> proceduralMemories;
+class _SimpleMemoryViewerDialog extends StatefulWidget {
+  final List<SimpleUserMemory> userMemories;
+  final List<SimpleConversationMemory> conversationMemories;
 
-  const _MemoryViewerDialog({
-    required this.semanticMemories,
-    required this.episodicMemories,
-    required this.proceduralMemories,
+  const _SimpleMemoryViewerDialog({
+    required this.userMemories,
+    required this.conversationMemories,
   });
 
   @override
-  State<_MemoryViewerDialog> createState() => _MemoryViewerDialogState();
+  State<_SimpleMemoryViewerDialog> createState() => _SimpleMemoryViewerDialogState();
 }
 
-class _MemoryViewerDialogState extends State<_MemoryViewerDialog>
+class _SimpleMemoryViewerDialogState extends State<_SimpleMemoryViewerDialog>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -549,11 +579,31 @@ class _MemoryViewerDialogState extends State<_MemoryViewerDialog>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
-                  Text(
-                    'Memory Viewer',
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: Colors.white,
+                  Row(
+                    children: [
+                      Text(
+                        'Simple Memory Viewer',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                              color: Colors.white,
+                            ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade100,
+                          borderRadius: BorderRadius.circular(12),
                         ),
+                        child: Text(
+                          '90% Simpler',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.green.shade800,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
@@ -567,9 +617,8 @@ class _MemoryViewerDialogState extends State<_MemoryViewerDialog>
             TabBar(
               controller: _tabController,
               tabs: <Widget>[
-                Tab(text: 'Semantic (${widget.semanticMemories.length})'),
-                Tab(text: 'Episodic (${widget.episodicMemories.length})'),
-                Tab(text: 'Procedural (${widget.proceduralMemories.length})'),
+                Tab(text: 'User Facts (${widget.userMemories.length})'),
+                Tab(text: 'Conversation Topics (${widget.conversationMemories.length})'),
               ],
             ),
 
@@ -578,9 +627,8 @@ class _MemoryViewerDialogState extends State<_MemoryViewerDialog>
               child: TabBarView(
                 controller: _tabController,
                 children: <Widget>[
-                  _buildSemanticMemoriesView(),
-                  _buildEpisodicMemoriesView(),
-                  _buildProceduralMemoriesView(),
+                  _buildUserFactsView(),
+                  _buildConversationTopicsView(),
                 ],
               ),
             ),
@@ -590,172 +638,148 @@ class _MemoryViewerDialogState extends State<_MemoryViewerDialog>
     );
   }
 
-  Widget _buildSemanticMemoriesView() {
-    if (widget.semanticMemories.isEmpty) {
-      return const Center(child: Text('No semantic memories found'));
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: widget.semanticMemories.length,
-      itemBuilder: (BuildContext context, int index) {
-        final SemanticMemory memory = widget.semanticMemories[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8.0),
-          child: ExpansionTile(
-            title: Text('User Context: ${memory.userContext}'),
-            subtitle: Text(
-                'Version: ${memory.version} | Updated: ${_formatDate(memory.updatedAt)}'),
-            children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    if (memory.profileData.containsKey('preferences'))
-                      _buildDataSection(
-                          'Preferences', memory.profileData['preferences']),
-                    if (memory.profileData.containsKey('facts'))
-                      _buildDataSection('Facts', memory.profileData['facts']),
-                    if (memory.profileData.containsKey('knowledge'))
-                      _buildDataSection(
-                          'Knowledge', memory.profileData['knowledge']),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildEpisodicMemoriesView() {
-    if (widget.episodicMemories.isEmpty) {
-      return const Center(child: Text('No episodic memories found'));
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: widget.episodicMemories.length,
-      itemBuilder: (BuildContext context, int index) {
-        final EpisodicMemory memory = widget.episodicMemories[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8.0),
-          child: ExpansionTile(
-            title: Text(memory.summary),
-            subtitle: Text(
-                'Relevance: ${(memory.relevanceScore * 100).toStringAsFixed(1)}% | ${_formatDate(memory.createdAt)}'),
-            children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text('Context:',
-                        style: Theme.of(context).textTheme.titleSmall),
-                    Text(memory.context),
-                    const SizedBox(height: 8),
-                    if (memory.tags.isNotEmpty) ...<Widget>[
-                      Text('Tags:',
-                          style: Theme.of(context).textTheme.titleSmall),
-                      Wrap(
-                        spacing: 4.0,
-                        children: memory.tags
-                            .map((String tag) => Chip(
-                                  label: Text(tag),
-                                  materialTapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ))
-                            .toList(),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildProceduralMemoriesView() {
-    if (widget.proceduralMemories.isEmpty) {
-      return const Center(child: Text('No procedural memories found'));
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: widget.proceduralMemories.length,
-      itemBuilder: (BuildContext context, int index) {
-        final ProceduralMemory memory = widget.proceduralMemories[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8.0),
-          child: ExpansionTile(
-            title: Text('${memory.patternType} Pattern'),
-            subtitle: Text(
-                'Success: ${(memory.successRate * 100).toStringAsFixed(1)}% | Used: ${memory.usageCount} times'),
-            children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    if (memory.description != null) ...<Widget>[
-                      Text('Description:',
-                          style: Theme.of(context).textTheme.titleSmall),
-                      Text(memory.description!),
-                      const SizedBox(height: 8),
-                    ],
-                    Text('Rule Data:',
-                        style: Theme.of(context).textTheme.titleSmall),
-                    _buildDataSection('', memory.ruleData),
-                    const SizedBox(height: 8),
-                    Text('Last Used: ${_formatDate(memory.lastUsed)}'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildDataSection(String title, dynamic data) {
-    if (data == null) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        if (title.isNotEmpty) ...<Widget>[
-          Text(title, style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 4),
-        ],
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(8.0),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            data is Map ? _formatMap(data) : data.toString(),
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-          ),
+  Widget _buildUserFactsView() {
+    if (widget.userMemories.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.person_outline, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('No user facts stored yet'),
+            SizedBox(height: 8),
+            Text(
+              'Try saying "Hello my name is John" to store your first fact!',
+              style: TextStyle(color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-      ],
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16.0),
+      itemCount: widget.userMemories.length,
+      itemBuilder: (BuildContext context, int index) {
+        final SimpleUserMemory memory = widget.userMemories[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8.0),
+          child: ExpansionTile(
+            title: Text('User: ${memory.userContext}'),
+            subtitle: Text('${memory.facts.length} facts | Updated: ${_formatDate(memory.updatedAt)}'),
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text('Facts:', style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 8),
+                    if (memory.facts.isEmpty)
+                      const Text('No facts stored', style: TextStyle(color: Colors.grey))
+                    else
+                      ...memory.facts.entries.map((entry) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4.0),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade100,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                entry.key,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.blue.shade800,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(entry.value)),
+                          ],
+                        ),
+                      )),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  String _formatMap(Map<dynamic, dynamic> map) {
-    final StringBuffer buffer = StringBuffer();
-    map.forEach((dynamic key,dynamic value) {
-      buffer.writeln('$key: $value');
-    });
-    return buffer.toString().trim();
+  Widget _buildConversationTopicsView() {
+    if (widget.conversationMemories.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('No conversation topics yet'),
+            SizedBox(height: 8),
+            Text(
+              'Start chatting to see topics appear here!',
+              style: TextStyle(color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16.0),
+      itemCount: widget.conversationMemories.length,
+      itemBuilder: (BuildContext context, int index) {
+        final SimpleConversationMemory memory = widget.conversationMemories[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8.0),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: Colors.green.shade100,
+              child: Icon(Icons.chat, color: Colors.green.shade800),
+            ),
+            title: Text('Conversation ${memory.conversationId}'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${_formatDate(memory.createdAt)} • ${memory.ageInDays} days ago'),
+                const SizedBox(height: 4),
+                if (memory.topics.isEmpty)
+                  const Text('No topics', style: TextStyle(color: Colors.grey))
+                else
+                  Wrap(
+                    spacing: 4.0,
+                    runSpacing: 4.0,
+                    children: memory.topics.map((String topic) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        topic,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.orange.shade800,
+                        ),
+                      ),
+                    )).toList(),
+                  ),
+              ],
+            ),
+            isThreeLine: true,
+          ),
+        );
+      },
+    );
   }
 
   String _formatDate(DateTime date) {

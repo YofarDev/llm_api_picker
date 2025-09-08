@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../llm_api_picker.dart';
+import '../services/simple_memory_extractor.dart';
+import '../services/simple_memory_service.dart';
 import '../utils/extensions.dart';
 
 class LLMRepository {
@@ -95,11 +97,14 @@ class LLMRepository {
     if (currentApi == null) throw Exception('No API selected');
     await _waitBetweenRequests(currentApi);
 
-    // Memory integration: enhance system prompt with memory context
+    // Memory integration: enhance system prompt with simple memory context
     String? enhancedSystemPrompt = systemPrompt;
-    if (useMemory && await MemoryService.isMemoryEnabled()) {
+    if (useMemory && await SimpleMemoryService.isMemoryEnabled()) {
+      if (debugLogs) {
+        debugPrint('### Memory: Attempting to retrieve simple memory context ###');
+      }
       try {
-        final String memoryContext = await MemoryService.getMemoryContext(
+        final String memoryContext = await SimpleMemoryService.getMemoryContext(
           userContext: userContext ?? 'default_user',
           conversationId: conversationId,
         );
@@ -108,10 +113,17 @@ class LLMRepository {
           enhancedSystemPrompt = systemPrompt != null
               ? '$systemPrompt\n\nRELEVANT MEMORY CONTEXT:\n$memoryContext'
               : 'RELEVANT MEMORY CONTEXT:\n$memoryContext';
+          if (debugLogs) {
+            debugPrint('### Memory: Simple memory context successfully added to system prompt ###');
+          }
+        } else {
+          if (debugLogs) {
+            debugPrint('### Memory: No simple memory context found ###');
+          }
         }
       } catch (e) {
         if (debugLogs) {
-          debugPrint('Error retrieving memory context: $e');
+          debugPrint('### Memory: Error retrieving simple memory context: $e ###');
         }
       }
     }
@@ -121,7 +133,7 @@ class LLMRepository {
         '### Request sent to ${currentApi.modelName} ###\n${messages.toString().safeSubstring(0, 500)}',
       );
       if (enhancedSystemPrompt != systemPrompt) {
-        debugPrint('### Memory context added to system prompt ###');
+        debugPrint('### Memory: System prompt enhanced with memory context ###');
       }
     }
 
@@ -135,28 +147,35 @@ class LLMRepository {
       temperature: temperature,
     );
 
-    // Memory integration: extract memories from successful conversation
-    if (useMemory && await MemoryService.isMemoryEnabled() && !returnJson) {
+    // Memory integration: extract memories from successful conversation using simplified system
+    if (useMemory && await SimpleMemoryService.isMemoryEnabled() && !returnJson) {
+      if (debugLogs) {
+        debugPrint('### Memory: Attempting to extract simple memories from conversation ###');
+      }
       try {
         // Create a copy of messages with the response added
         final List<Message> conversationMessages = List<Message>.from(messages);
         conversationMessages
             .add(Message(role: MessageRole.assistant, body: response));
 
-        // Extract memories in the background (don't await to avoid blocking)
-        MemoryExtractor.extractMemoriesFromConversation(
+        // Extract memories in the background using simplified system (don't await to avoid blocking)
+        SimpleMemoryExtractor.extractMemoriesFromConversation(
           messages: conversationMessages,
           conversationId: conversationId ?? const Uuid().v4(),
           userContext: userContext ?? 'default_user',
           api: currentApi,
-        ).catchError((dynamic e) {
+        ).then((_) {
           if (debugLogs) {
-            debugPrint('Error extracting memories: $e');
+            debugPrint('### Memory: Simple memory extraction initiated successfully ###');
+          }
+        }).catchError((dynamic e) {
+          if (debugLogs) {
+            debugPrint('### Memory: Error extracting simple memories: $e ###');
           }
         });
       } catch (e) {
         if (debugLogs) {
-          debugPrint('Error in memory extraction setup: $e');
+          debugPrint('### Memory: Error in simple memory extraction setup: $e ###');
         }
       }
     }
@@ -198,11 +217,14 @@ class LLMRepository {
     if (currentApi == null) throw Exception('No API selected');
     await _waitBetweenRequests(currentApi);
 
-    // Memory integration: enhance system prompt with memory context
+    // Memory integration: enhance system prompt with simple memory context
     String? enhancedSystemPrompt = systemPrompt;
-    if (useMemory && await MemoryService.isMemoryEnabled()) {
+    if (useMemory && await SimpleMemoryService.isMemoryEnabled()) {
+      if (debugLogs) {
+        debugPrint('### Memory: Attempting to retrieve simple memory context for stream ###');
+      }
       try {
-        final String memoryContext = await MemoryService.getMemoryContext(
+        final String memoryContext = await SimpleMemoryService.getMemoryContext(
           userContext: userContext ?? 'default_user',
           conversationId: conversationId,
         );
@@ -211,20 +233,27 @@ class LLMRepository {
           enhancedSystemPrompt = systemPrompt != null
               ? '$systemPrompt\n\nRELEVANT MEMORY CONTEXT:\n$memoryContext'
               : 'RELEVANT MEMORY CONTEXT:\n$memoryContext';
+          if (debugLogs) {
+            debugPrint('### Memory: Simple memory context successfully added to system prompt for stream ###');
+          }
+        } else {
+          if (debugLogs) {
+            debugPrint('### Memory: No simple memory context found for stream ###');
+          }
         }
       } catch (e) {
         if (debugLogs) {
-          debugPrint('Error retrieving memory context: $e');
+          debugPrint('### Memory: Error retrieving simple memory context for stream: $e ###');
         }
       }
     }
 
     if (debugLogs) {
       debugPrint(
-        '### Request sent to ${currentApi.modelName} ###\n${messages.toString().safeSubstring(0, 500)}',
+        '### Request sent to ${currentApi.modelName} (stream) ###\n${messages.toString().safeSubstring(0, 500)}',
       );
       if (enhancedSystemPrompt != systemPrompt) {
-        debugPrint('### Memory context added to system prompt ###');
+        debugPrint('### Memory: System prompt enhanced with memory context for stream ###');
       }
     }
 

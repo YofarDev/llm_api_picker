@@ -3,12 +3,12 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/llm_api.dart';
+import 'simple_memory_service.dart';
 
 class CacheService {
   static const String _savedList = 'llms_apis_saved';
   static const String _currentApi = 'current_api';
   static const String _currentSmallApi = 'current_small_api';
-  static const String _memoryEnabled = 'memory_enabled';
   static const String _memoryAutoCleanup = 'memory_auto_cleanup';
   static const String _memoryCleanupDays = 'memory_cleanup_days';
 
@@ -105,14 +105,14 @@ class CacheService {
 
   /// Set memory enabled state
   static Future<void> setMemoryEnabled(bool enabled) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_memoryEnabled, enabled);
+    // Delegate to SimpleMemoryService for consistency
+    await SimpleMemoryService.setMemoryEnabled(enabled);
   }
 
   /// Get memory enabled state
   static Future<bool> isMemoryEnabled() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_memoryEnabled) ?? false; // Default to disabled
+    // Delegate to SimpleMemoryService for consistency
+    return SimpleMemoryService.isMemoryEnabled();
   }
 
   /// Set memory auto cleanup enabled state
@@ -142,7 +142,7 @@ class CacheService {
   /// Get all memory settings as a map
   static Future<Map<String, dynamic>> getMemorySettings() async {
     return <String, dynamic>{
-      'enabled': await isMemoryEnabled(),
+      'enabled': await SimpleMemoryService.isMemoryEnabled(), // Delegate to SimpleMemoryService
       'auto_cleanup': await isMemoryAutoCleanupEnabled(),
       'cleanup_days': await getMemoryCleanupDays(),
     };
@@ -151,7 +151,7 @@ class CacheService {
   /// Set multiple memory settings at once
   static Future<void> setMemorySettings(Map<String, dynamic> settings) async {
     if (settings.containsKey('enabled')) {
-      await setMemoryEnabled(settings['enabled'] as bool);
+      await SimpleMemoryService.setMemoryEnabled(settings['enabled'] as bool); // Delegate to SimpleMemoryService
     }
     if (settings.containsKey('auto_cleanup')) {
       await setMemoryAutoCleanup(settings['auto_cleanup'] as bool);

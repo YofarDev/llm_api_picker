@@ -18,11 +18,17 @@ class MemoryService {
   static Future<bool> isMemoryEnabled() async {
     final String? setting =
         await MemoryDatabase.getMemorySetting(_memoryEnabledKey);
+    if (kDebugMode) {
+      debugPrint('MemoryService: isMemoryEnabled() - Retrieved setting: $setting');
+    }
     return setting == 'true';
   }
 
   /// Enable or disable memory
   static Future<void> setMemoryEnabled(bool enabled) async {
+    if (kDebugMode) {
+      debugPrint('MemoryService: setMemoryEnabled() - Setting to: $enabled');
+    }
     await MemoryDatabase.setMemorySetting(
         _memoryEnabledKey, enabled.toString());
   }
@@ -37,15 +43,22 @@ class MemoryService {
       final String? memoryEnabled =
           await MemoryDatabase.getMemorySetting(_memoryEnabledKey);
       if (memoryEnabled == null) {
+        if (kDebugMode) {
+          debugPrint('MemoryService: No memory enabled setting found, defaulting to false.');
+        }
         await setMemoryEnabled(false); // Default to disabled
+      } else {
+        if (kDebugMode) {
+          debugPrint('MemoryService: Memory enabled setting found: $memoryEnabled');
+        }
       }
 
       if (kDebugMode) {
-        print('MemoryService initialized successfully');
+        debugPrint('MemoryService initialized successfully');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error initializing MemoryService: $e');
+        debugPrint('MemoryService: Error initializing MemoryService: $e');
       }
     }
   }
